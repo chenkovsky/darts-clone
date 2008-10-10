@@ -1,0 +1,52 @@
+#summary Darts clone の説明と使い方．
+
+= はじめに =
+
+== Darts clone の位置づけ ==
+
+Darts clone は，Darts（Double-ARray Trie System）のクローンとして開発された C++ ヘッダライブラリです．
+Darts と比較した場合の利点は，辞書のサイズを大幅に削減できることです．
+ただし，実装上の理由により一部の機能が利用できなくなっています．
+
+ * Darts: Double-ARray Trie System
+  * http://chasen.org/~taku/software/darts/
+
+== 制限事項 ==
+
+Darts clone には，以下のような制限があります．
+
+ * キー集合の規模
+  * キー数が 200 万件を超えるほど大規模になると，構築に失敗する可能性があります．
+  * そのような場合，Darts::DoubleArray の代わりに Darts::HugeDoubleArray を利用することができます．
+ * 一部機能の制限
+  * メンバ関数 traverse() は提供されません．
+
+== その他の変更点 ==
+
+Darts は 1 本の配列でダブル配列を表現していますが，Darts clone は 2 本の配列を使用しています．
+そのため，メンバ関数 set_array(), array(), size(), nonzero_size() はイレギュラーな実装になっています．
+Darts との互換性を考慮しない場合，Darts clone 専用のメンバ関数
+unit_array(), tail_array(), unit_num(), unused_unit_num(), tail_size(), tail_length() などを使用することができます．
+
+※ 現在，set_unit_array() と set_tail_array() は未実装です．
+
+= 使い方 =
+
+基本的な使い方は Darts と同じで，ヘッダを include するだけです．
+darts-clone.h の名前を darts.h に変更すれば，darts.h を単純に置き換えることができます．
+ただし，バイナリ辞書には互換性がないため，再構築が必要となります．
+
+= 参考文献 =
+
+関係しそうな文献を並べておきます．
+
+ # 青江 順一. ダブル配列による高速ディジタル検索アルゴリズム. *電子情報通信学会論文誌*, Vol. J71--D, No. 9, pp. 1592-1600, 1988.
+ # 青江 順一. 自然言語辞書の検索---ダブル配列による高速ディジタル検索アルゴリズム. *bit*, Vol. 21, No. 6, pp. 776-784, 1989.
+ # 青江 順一. キー検索技法：IV.トライとその応用. *情報処理*, Vol. 34, No. 2, pp 244-251, 1993.
+ # 森田 和宏, 泓田 正雄, 大野 将樹, 青江 順一. ダブル配列における動的更新の効率化アルゴリズム. *情報処理学会論文誌*, Vol. 42, No. 9, pp. 2229-2238, 2001.
+ # 大野 将樹, 森田 和宏, 泓田 正雄, 青江 順一. ダブル配列による自然言語辞書の高速更新法. *言語処理学会第11回年次大会発表論文集*, pp. 745-748, 2005.
+ # 矢田 晋, 森田 和宏, 泓田 正雄, 平石 亘, 青江 順一. ダブル配列におけるキャッシュの効率化. *第5回情報科学技術フォーラム（FIT2006）*, No. LD--008, pp. 71-72, 2006.
+ # Aoe, J. _An Efficient Digital Search Algorithm by Using a Double-Array Structure_. *IEEE Transactions on Software Engineering*, Vol. 15, No. 9, pp. 1066-1077, 1989.
+ # Aoe, J., Morimoto, K. & Sato, T. _An Efficient Implementation of Trie Structures_. *Software---Practice and Experience*, Vol. 22, No. 9, pp. 695-721, 1992.
+ # Morita, K.; Fuketa, M.; Yamakawa, Y. & Aoe, J. _Fast insertion methods of a double-array structure_. *Software---Practice and Experience*, Vol. 31, pp. 43-65, 2001.
+ # Yata, S.; Oono, M.; Morita, K.; Fuketa, M.; Sumitomo, T. & Aoe, J. _A compact static double-array keeping character codes_. *Information Processing and Management*, Vol. 43, No. 1, pp. 237-247, 2007.
