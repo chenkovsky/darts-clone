@@ -1,4 +1,5 @@
 #summary Darts clone の説明と使い方．
+#labels Phase-Design
 
 = はじめに =
 
