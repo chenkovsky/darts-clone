@@ -1,0 +1,80 @@
+#summary 辞書サイズの比較．
+
+= 概要 =
+
+Darts clone の利点を示すために，Darts と Darts clone を用いて構築される辞書のサイズを示します．
+今回調査した辞書の内容は以下のようになっています．
+
+ * MeCab
+  * MeCab で ipadic を用いた場合の辞書（sys.dic）
+ * Google N-gram
+  * Google N-gmra コーパスの unigrams を登録した辞書
+ * 日英単語
+  * ipadic-2.6.3 と Wordnet-3.0 から構築した辞書
+
+= 実験結果 =
+
+== MeCab ==
+
+MeCab を Ubuntu 8.04 上でコンパイルしたときに生成される辞書（sys.dic）のサイズを調査しました．
+実験に使用したのは，mecab-0.97.tar.gz と mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
+これらのアーカイブは以下のサイトから入手できます．
+
+ * MeCab: Yet Another Part-of-Speech and Morphological Analyzer
+  * http://mecab.sourceforge.net/
+
+辞書構築までの手順は以下の通りです．
+Darts clone を使用するときは，mecab-0.97.tar.gz に含まれる darts.h を darts-clone.h により置き換えました．
+
+ # tar zxvf mecab-0.97.tar.gz
+ # cd mecab-0.97
+ # ./configure
+ # make
+ # make check
+ # sudo make install
+ # cd ..
+ # tar zxvf mecab-ipadic-2.7.0-20070801.tar.gz
+ # cd mecab-ipadic-2.7.0-20070801
+ # ./configure
+ # /usr/local/libexec/mecab/mecab-dict-index -d . -o . -f EUC-JP -t 文字コード
+
+辞書サイズは以下のようになりました．
+品詞や読みに割り当てられている領域の方がずっと大きいようで，全体から見ると大して効果はありません．
+sys.dic のサイズが 15% ほど削減されるにとどまりました．
+
+|| *文字コード* || *Darts* || *Darts clone* ||
+||sjis||37,638,335||32,232,563||
+||euc||37,779,919||32,245,051||
+||utf8||49,199,027||41,587,051||
+
+このままでは悲しいので，分かち書き用の辞書も構築してみました．
+品詞などがなくなったおかげで，少し嬉しい結果になっています．
+
+|| *文字コード* || *Darts* || *Darts clone* ||
+||sjis||15,132,073||9,726,301||
+||euc||15,273,657||9,738,789||
+||utf8||17,700,673||10,088,697||
+
+※ 分かち書き用の辞書は mecab-dict-index に -w オプションを与えることで構築できます．
+
+== Google N-gram ==
+
+Google N-gram コーパスの unigram を使用して，大規模なキー集合に対する性能を調査しました．
+Darts の辞書構築には mkdarts，Darts clone の辞書構築には mkdarts-clone を使用しています．
+ただし，Darts clone の Darts::DoubleArray は構築できる辞書の規模に上限があるため，
+英語の unigram については Darts::HugeDoubleArray を使用しています．
+
+※ mkdarts-clone と darts-clone に -h オプションを与えると Darts::HugeDoubleArray を使用します．
+
+|| *言語* || *キー数* || *ソース* || *Darts* || *Darts clone* ||
+||日本語||2,565,427||50,784,220||162,689,912||36,857,172||
+||英語||13,588,391||125,937,836||406,358,432||223,290,696||
+
+日本語 unigram については，Darts clone のサイズは Darts の 1/4 以下になっています．
+一方，英語 unigram については，Darts::HugeDoubleArray を使っていることもあり，1/2 程度になっています．
+
+※ 日本語 unigram 使用時の差が大きい理由としては，長いカタカナが大量に含まれていることが挙げられます．
+
+== 日英単語 ==
+
+データ取るのを忘れてました．近いうちに追加します．
