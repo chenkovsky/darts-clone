@@ -23,7 +23,7 @@ namespace Darts {
 typedef Darts::DoubleArrayImpl<char, unsigned char, int, unsigned int> DoubleArray;
 typedef Darts::DoubleArrayImpl<char, unsigned char, int, unsigned long long> HugeDoubleArray;
 
-}  // namespace
+}  // namespace Darts
 }}}
 
 = 基本クラス =
