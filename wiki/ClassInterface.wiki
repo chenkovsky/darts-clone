@@ -1,0 +1,126 @@
+#summary Darts clone のインタフェース．
+#labels Phase-Design
+
+= はじめに =
+
+Darts および Darts clone は，それぞれ単一の C++ ヘッダファイルとして提供されます．
+そのため，提供されているヘッダを include するだけで利用できます．
+各ヘッダはテンプレートクラスを提供するとともに，一般的な設定に対する別名 Darts::DoubleArray を提供します．
+
+Darts::DoubleArray の基本的な機能のみを利用する場合，Darts と Darts clone のインタフェースはとても似ています．
+ただし，基礎となっているクラスのインタフェースには，いくつかの違いがあります．
+以下，Darts clone が提供するクラスについて説明します．
+
+== 通常の利用方法 ==
+
+Darts と同様に，通常は Darts::DoubleArray を使用します．
+ただし，非常に大規模なキー集合を扱う場合は Darts::HugeDoubleArray を使用します．
+キー数が 200 万件を超えることが予想される状況では，Darts::HugeDoubleArray の使用を検討してください．
+
+{{{
+namespace Darts {
+
+typedef Darts::DoubleArrayImpl<char, unsigned char, int, unsigned int> DoubleArray;
+typedef Darts::DoubleArrayImpl<char, unsigned char, int, unsigned long long> HugeDoubleArray;
+
+}  // namespace
+}}}
+
+= 基本クラス =
+
+Darts::DoubleArray や Darts::HugeDoubleArray は Darts::DoubleArrayImpl の別名であり，すべての機能は Darts::DoubleArrayImpl により提供されています．
+
+{{{
+namespace Darts {
+
+template <typename CharType, typename UCharType, typename ValueType,
+	typename BaseType, typename LengthFunc = DefaultLengthFunc<CharType> >
+class DoubleArrayImpl {
+public:
+	typedef CharType char_type;
+	typedef UCharType uchar_type;
+	typedef ValueType value_type;
+	typedef BaseType base_type;
+
+	// For compatibility.
+	typedef CharType key_type;
+	typedef ValueType result_type;
+
+	struct result_pair_type {
+		value_type value;
+		size_t length;
+	};
+
+	DoubleArrayImpl();
+	~DoubleArrayImpl();
+
+	// For compativility.
+	void set_array(const void *ptr, size_t = 0);
+	const void *array() const;
+	size_t size() const;
+	size_t nonzero_size() const;
+
+	void set_unit_array(const unit_type *unit);
+	void set_tail_array(const uchar_type *tail);
+	const unit_type *unit_array() const;
+	const uchar_type *tail_array() const;
+
+	void clear();
+
+	size_t unit_size() const;
+	size_t unit_num() const;
+	size_t unit_total_size() const;
+	size_t unused_unit_num() const;
+
+	size_t tail_size() const;
+	size_t tail_length() const;
+	size_t tail_total_size() const;
+
+	size_t total_size() const;
+
+	int build(size_t num_of_keys, const char_type * const *keys,
+		const size_t *lengths = 0, const value_type *values = 0);
+	template <typename ProgressFunc>
+	int build(size_t num_of_keys, const char_type * const *keys,
+		const size_t *lengths, const value_type *values, ProgressFunc progress_func);
+
+	// For compatibility (to skip an integer zero and a null pointer).
+	int build(size_t num_of_keys, const char_type * const *keys,
+		const size_t *lengths, const value_type *values, int null_pointer);
+	template <typename ProgressFunc>
+	int build(size_t num_of_keys, const char_type * const *keys,
+		const size_t *lengths, const value_type *values, ProgressFunc *progress_func);
+
+	int open(const char *file, const char *mode = "rb", size_t offset = 0, size_t size = 0);
+	int save(const char *file, const char *mode = "wb", size_t offset = 0) const;
+
+	template <class ResultType>
+	int exactMatchSearch(const char_type *key,
+		ResultType &result, size_t length = 0, size_t node_pos = 0) const;
+	template <class ResultType>
+	ResultType exactMatchSearch(const char_type *key,
+		size_t length = 0, size_t node_pos = 0) const;
+
+	template <typename ResultType>
+	size_t commonPrefixSearch(const char_type *key, ResultType *results,
+		size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
+};
+
+}  // namespace Darts
+}}}
+
+== 基本クラスのテンプレート引数 ==
+
+Darts と Darts clone では，基本クラス Darts::DoubleArrayImpl のテンプレート引数が異なります．
+使用する場合は以下の表を参考にしてください．
+
+|| *引数名* || *説明* ||
+|| CharType || キーを構成する要素の型です．通常は char を指定します． ||
+|| UCharType || CharType に対応する符号なし整数の型です．トライのラベルとしても使用されます．通常は unsigned char を指定します． ||
+|| ValueType || 各キーに持たせるレコードの型です．POD type として使用できる型を指定してください． ||
+|| BaseType || ダブル配列を構成する要素の型です．符号なし整数を指定する必要があります．32-bit もしくは 64-bit 符号なし整数を指定することができます． ||
+|| LengthFunc || キーもしくはテキストの長さに 0 を指定したとき，長さを計算するために呼び出される関数オブジェクトです．通常は指定する必要がありません． ||
+
+== 基本クラスのメソッド ==
+
+まだです．
