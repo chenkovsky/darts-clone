@@ -37,6 +37,12 @@ unit_array(), tail_array(), unit_num(), unused_unit_num(), tail_size(), tail_len
 darts-clone.h の名前を darts.h に変更すれば，darts.h を単純に置き換えることができます．
 ただし，バイナリ辞書には互換性がないため，再構築が必要となります．
 
+詳細は ClassInterface を参考にしてください．
+
+= 変更履歴 =
+
+変更履歴は ChangeLog を参考にしてください．
+
 = 参考文献 =
 
 関係しそうな文献を並べておきます．
