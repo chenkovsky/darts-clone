@@ -1,0 +1,10 @@
+#summary 変更履歴．
+
+= 変更履歴 =
+
+ * 2008/10/13
+  * darts-clone-0.32b.tar.gz をアップロード．
+  * std::sort() の代わりに std::stable_sort() を使うように修正．
+  * set_result() を private で static なメソッドに変更．
+ * 2008/10/10
+  * darts-clone-0.32a.tar.gz をアップロード．
