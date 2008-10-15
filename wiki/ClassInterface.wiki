@@ -114,13 +114,115 @@ public:
 Darts と Darts clone では，基本クラス Darts::DoubleArrayImpl のテンプレート引数が異なります．
 使用する場合は以下の表を参考にしてください．
 
-|| *引数名* || *説明* ||
-|| CharType || キーを構成する要素の型です．通常は char を指定します． ||
-|| UCharType || CharType に対応する符号なし整数の型です．トライのラベルとしても使用されます．通常は unsigned char を指定します． ||
-|| ValueType || 各キーに持たせるレコードの型です．POD type として使用できる型を指定してください． ||
-|| BaseType || ダブル配列を構成する要素の型です．符号なし整数を指定する必要があります．32-bit もしくは 64-bit 符号なし整数を指定することができます． ||
-|| LengthFunc || キーもしくはテキストの長さに 0 を指定したとき，長さを計算するために呼び出される関数オブジェクトです．通常は指定する必要がありません． ||
+|| *引数名* || *別名* || *説明* ||
+|| CharType || char_type || キーを構成する要素の型です．通常は char を指定します． ||
+|| UCharType || uchar_type || CharType に対応する符号なし整数の型です．トライのラベルとしても使用されます．通常は unsigned char を指定します． ||
+|| ValueType || value_type || 各キーに持たせるレコードの型です．POD type として使用できる型を指定してください． ||
+|| BaseType || base_type || ダブル配列を構成する要素の型です．符号なし整数を指定する必要があります．32-bit もしくは 64-bit 符号なし整数を指定することができます． ||
+|| LengthFunc || || キーもしくはテキストの長さに 0 を指定したとき，長さを計算するために呼び出される関数オブジェクトです．通常は指定する必要がありません． ||
+
+== 基本クラスの提供する型 ==
+
+基本クラス Darts::DoubleArrayImpl は，検索結果を受け取るためのクラス Darts::DoubleArrayImpl::result_pair_type を提供します．
+メソッド exactMatchSearch() および commonPrefixSearch() では，Darts::DoubleArrayImpl::value_type と Darts::DoubleArrayImpl::result_pair_type の両方を同じように扱えます．
+
+{{{
+struct result_pair_type {
+	value_type value;
+	size_t length;
+};
+}}}
+
+検索条件に一致するキーが見つからない場合，value に {{{static_cast<value_type>(-1)}}} が格納され，length には 0 が格納されます．
+一方，一致するキーが見つかった場合，value に一致したキーのレコードが格納され，length には一致したキーの長さが格納されます．
 
 == 基本クラスのメソッド ==
 
-まだです．
+作成中です．
+
+=== 構築用のメソッド ===
+
+{{{
+DoubleArrayImpl();
+}}}
+
+{{{
+int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths = 0, const value_type *values = 0);
+}}}
+
+{{{
+template <typename ProgressFunc>
+int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, ProgressFunc progress_func);
+}}}
+
+{{{
+int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, int null_pointer);
+}}}
+
+{{{
+template <typename ProgressFunc>
+int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, ProgressFunc *progress_func);
+}}}
+
+=== ファイル入出力用のメソッド ===
+
+{{{
+int open(const char *file, const char *mode = "rb", size_t offset = 0, size_t size = 0);
+}}}
+
+{{{
+int save(const char *file, const char *mode = "wb", size_t offset = 0) const;
+}}}
+
+=== 検索用のメソッド ===
+
+{{{
+template <typename ResultType>
+int exactMatchSearch(const char_type *key, ResultType &result, size_t length = 0, size_t node_pos = 0) const
+}}}
+
+{{{
+template <typename ResultType>
+ResultType exactMatchSearch(const char_type *key, size_t length = 0, size_t node_pos = 0) const;
+}}}
+
+{{{
+template <typename ResultType>
+size_t commonPrefixSearch(const char_type *key, ResultType *results, size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
+}}}
+
+=== その他のメソッド ===
+
+{{{
+void clear();
+}}}
+
+{{{
+void set_unit_array(const unit_type *unit);
+void set_tail_array(const uchar_type *tail);
+}}}
+
+{{{
+const unit_type *unit_array() const;
+const uchar_type *tail_array() const;
+}}}
+
+{{{
+size_t unit_size() const;
+size_t unit_num() const;
+size_t unit_total_size() const;
+size_t unused_unit_num() const;
+size_t tail_size() const;
+size_t tail_length() const;
+size_t tail_total_size() const;
+size_t total_size() const;;
+}}}
+
+=== 互換用のメソッド ===
+
+{{{
+const void *array() const;
+void set_array(const void *ptr, size_t = 0);
+size_t size() const;
+size_t nonzero_size() const;
+}}}
