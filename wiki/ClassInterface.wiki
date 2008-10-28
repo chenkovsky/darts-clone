@@ -147,21 +147,25 @@ DoubleArrayImpl();
 }}}
 
 {{{
-int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths = 0, const value_type *values = 0);
+int build(size_t num_of_keys, const char_type * const *keys,
+	const size_t *lengths = 0, const value_type *values = 0);
 }}}
 
 {{{
 template <typename ProgressFunc>
-int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, ProgressFunc progress_func);
+int build(size_t num_of_keys, const char_type * const *keys
+	const size_t *lengths, const value_type *values, ProgressFunc progress_func);
 }}}
 
 {{{
-int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, int null_pointer);
+int build(size_t num_of_keys, const char_type * const *keys,
+	const size_t *lengths, const value_type *values, int null_pointer);
 }}}
 
 {{{
 template <typename ProgressFunc>
-int build(size_t num_of_keys, const char_type * const *keys, const size_t *lengths, const value_type *values, ProgressFunc *progress_func);
+int build(size_t num_of_keys, const char_type * const *keys,
+	const size_t *lengths, const value_type *values, ProgressFunc *progress_func);
 }}}
 
 === ファイル入出力用のメソッド ===
@@ -188,7 +192,8 @@ ResultType exactMatchSearch(const char_type *key, size_t length = 0, size_t node
 
 {{{
 template <typename ResultType>
-size_t commonPrefixSearch(const char_type *key, ResultType *results, size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
+size_t commonPrefixSearch(const char_type *key, ResultType *results,
+	size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
 }}}
 
 === その他のメソッド ===
@@ -196,6 +201,8 @@ size_t commonPrefixSearch(const char_type *key, ResultType *results, size_t max_
 {{{
 void clear();
 }}}
+
+ダブル配列を破棄し，確保しているメモリを解放します．
 
 {{{
 void set_unit_array(const unit_type *unit);
@@ -220,9 +227,34 @@ size_t total_size() const;;
 
 === 互換用のメソッド ===
 
+以下のメソッドは互換性のために提供されています．
+
 {{{
 const void *array() const;
+}}}
+
+ダブル配列の開始アドレスを返します．
+Darts クローンでは 2 つの配列に分割してダブル配列を保持するため，関数を呼び出した時点で 2 つの配列をつなげた配列を作成し，その開始アドレスを返すようになっています．
+作成された配列は，ダブル配列が再構築もしくは破棄されるまで保持されます．
+
+{{{
 void set_array(const void *ptr, size_t = 0);
+}}}
+
+ダブル配列の開始アドレスを指定します．
+array() により取得した配列を保存したファイルに対して mmap() を用いる場合などに使えます．
+Darts::DoubleArrayImpl は，受け取ったメモリを複製したり管理したりしません．
+
+{{{
 size_t size() const;
+}}}
+
+ダブル配列の要素数を返します．
+実際には，ダブル配列が 1 つの配列により実装されていると仮定し，2 つの配列を連結したときのサイズから逆算した値を返します．
+
+{{{
 size_t nonzero_size() const;
 }}}
+
+ダブル配列の中で，使用されている要素の数を返します．
+size() と同様に，疑似的な値を返します．
