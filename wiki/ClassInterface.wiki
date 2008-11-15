@@ -138,6 +138,8 @@ struct result_pair_type {
 
 == 基本クラスのメソッド ==
 
+多くのメソッドは，成功すれば 0，失敗すれば -1 を返すように設計されています．
+
 作成中です．
 
 === 構築用のメソッド ===
@@ -151,6 +153,9 @@ int build(size_t num_of_keys, const char_type * const *keys,
 	const size_t *lengths = 0, const value_type *values = 0);
 }}}
 
+引数の省略を許容するために用意されたメソッドです．
+次のメソッド build() を呼び出すだけであり，特に意識する必要はありません．
+
 {{{
 template <typename ProgressFunc>
 int build(size_t num_of_keys, const char_type * const *keys
@@ -162,11 +167,21 @@ int build(size_t num_of_keys, const char_type * const *keys,
 	const size_t *lengths, const value_type *values, int null_pointer);
 }}}
 
+従来のインタフェースでは関数ポインタを受け取るように設計されていたため，NULL ポインタの代わりに整数 0 を渡される可能性があります．
+そのような場合でも正しく処理をおこなうために用意されたメソッドです．
+
+0 が与えられたときはデフォルトの関数オブジェクトを使用してダブル配列の構築をおこないます．
+0 以外の整数が与えられたときはエラー扱いになります．
+
 {{{
 template <typename ProgressFunc>
 int build(size_t num_of_keys, const char_type * const *keys,
 	const size_t *lengths, const value_type *values, ProgressFunc *progress_func);
 }}}
+
+NULL ポインタを関数ポインタとして受け取るためのメソッドです．
+NULL ポインタが与えられたときはデフォルトの関数オブジェクトを使用してダブル配列の構築をおこないます．
+それ以外の場合，与えられた関数ポインタを使用してダブル配列の構築をおこないます．
 
 === ファイル入出力用のメソッド ===
 
@@ -174,9 +189,19 @@ int build(size_t num_of_keys, const char_type * const *keys,
 int open(const char *file, const char *mode = "rb", size_t offset = 0, size_t size = 0);
 }}}
 
+ダブル配列をファイルから入力します．
+file には入力ファイル名，mode には std::file() に渡す引数を指定します．
+offset にはダブル配列の書き込み位置を指定するようになっています．
+size にはダブル配列のサイズをバイト単位で指定することができますが，正当性の確認にのみ使用されます．
+実際に読み込むバイト数には影響ありません．
+
 {{{
 int save(const char *file, const char *mode = "wb", size_t offset = 0) const;
 }}}
+
+ダブル配列をファイルに出力します．
+file には出力ファイル名，mode には std::fopen() に渡す引数を指定します．
+offset を指定すると，ファイルの先頭 offset バイトをスキップした後でダブル配列をファイルに書き込みます．
 
 === 検索用のメソッド ===
 
