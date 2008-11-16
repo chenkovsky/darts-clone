@@ -165,20 +165,21 @@ int build(size_t num_of_keys, const char_type * const *keys
 	const size_t *lengths, const value_type *values, ProgressFunc progress_func);
 }}}
 
-num_of_keys に登録する単語数，keys には各単語へのポインタの配列，
-lengths には各単語の長さの配列，values には各単語に関連付ける値の配列を指定します．
+num_of_keys に登録するキー数，keys には各キーへのポインタの配列，
+lengths には各キーの長さの配列，values には各キーに関連付ける値の配列を指定します．
 progress_func には，構築状況の表示に用いる関数もしくは関数オブジェクトを指定します．
 
-単語は辞書順に整列されている必要があります．
+キーは辞書順に整列されている必要があります．
 values は負の値であっても構いません．
+同じキーが複数ある場合，後に出現した方に対応する値が採用されます．
 
 lengths, values, progress_func は省略可能です．
-lengths を省略すると，各単語の長さは LengthFunc により計算されます．
-values を省略すると，各単語には何番目の単語なのかが関連付けられます．
+lengths を省略すると，各キーの長さは LengthFunc により計算されます．
+values を省略すると，各キーには何番目のキーなのかが関連付けられます．
 progress_func を省略すると，何もしない関数オブジェクトを採用します．
 
 表示関数 progress_func には，2 つの size_t 型の整数が引数として渡されます．
-1 つ目は構築できた単語の数，2 つ目は全体の単語数です．
+1 つ目は構築できたキーの数，2 つ目は全体のキー数です．
 
 {{{
 int build(size_t num_of_keys, const char_type * const *keys,
@@ -228,16 +229,41 @@ template <typename ResultType>
 int exactMatchSearch(const char_type *key, ResultType &result, size_t length = 0, size_t node_pos = 0) const
 }}}
 
+入力文字列に完全一致するキーが登録されているかどうかを確認します．
+
+key には入力文字列，result には結果を受け取るためのオブジェクト，
+length には入力文字列の長さを指定します．
+length を省略すると，入力文字列の長さは LengthFunc により計算されます．
+node_pos には検索開始位置を指定できますが，正しく動作するという保証はありません．
+
+ResultType には，Darts::DoubleArrayImpl::value_type と Darts::DoubleArrayImpl::result_pair_type を指定できます．
+value_type を指定すると，キーと対応する値のみを取得できます．
+一方，result_pair_type を指定すると，キーと対応する値に加えて，一致したキーの長さを取得できます．
+
 {{{
 template <typename ResultType>
 ResultType exactMatchSearch(const char_type *key, size_t length = 0, size_t node_pos = 0) const;
 }}}
+
+入力文字列に完全一致するキーが登録されているかどうかを確認します．
+結果を戻り値として受け取る点が上記のメソッドとは異なります．
+
+入力文字列が登録されていなかった場合，本来はキーと対応する値を格納すべき箇所に -1 を格納して返します．
 
 {{{
 template <typename ResultType>
 size_t commonPrefixSearch(const char_type *key, ResultType *results,
 	size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
 }}}
+
+key には検索文字列，results には検索結果を受け取るための配列を指定します．
+max_num_of_results には受け取る検索結果の数，length には検索文字列の長さを指定します．
+length を省略すると，入力文字列の長さは LengthFunc により計算されます．
+node_pos には検索開始位置を指定できますが，正しく動作するという保証はありません．
+
+戻り値は検索結果の数（マッチしたキーの数）になります．
+各キーに対応する値や各キーの長さは，results を参照することで取得できます．
+検索結果の数が max_num_of_results より大きい場合，max_num_of_results 個までを results に格納し，実際の検索結果の数が戻り値になります．
 
 === その他のメソッド ===
 
