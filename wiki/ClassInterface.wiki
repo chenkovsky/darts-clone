@@ -138,6 +138,9 @@ struct result_pair_type {
 
 == 基本クラスのメソッド ==
 
+基本的に本家の Darts::DoubleArrayImpl と同じように振舞いますが，一部のメソッドに制限が加わったり，入力可能な型が追加されていたりします．
+また，いくつか新しいメソッドが追加されています．
+
 多くのメソッドは，成功すれば 0，失敗すれば -1 を返すように設計されています．
 
 作成中です．
@@ -161,6 +164,21 @@ template <typename ProgressFunc>
 int build(size_t num_of_keys, const char_type * const *keys
 	const size_t *lengths, const value_type *values, ProgressFunc progress_func);
 }}}
+
+num_of_keys に登録する単語数，keys には各単語へのポインタの配列，
+lengths には各単語の長さの配列，values には各単語に関連付ける値の配列を指定します．
+progress_func には，構築状況の表示に用いる関数もしくは関数オブジェクトを指定します．
+
+単語は辞書順に整列されている必要があります．
+values は負の値であっても構いません．
+
+lengths, values, progress_func は省略可能です．
+lengths を省略すると，各単語の長さは LengthFunc により計算されます．
+values を省略すると，各単語には何番目の単語なのかが関連付けられます．
+progress_func を省略すると，何もしない関数オブジェクトを採用します．
+
+表示関数 progress_func には，2 つの size_t 型の整数が引数として渡されます．
+1 つ目は構築できた単語の数，2 つ目は全体の単語数です．
 
 {{{
 int build(size_t num_of_keys, const char_type * const *keys,
@@ -234,10 +252,16 @@ void set_unit_array(const unit_type *unit);
 void set_tail_array(const uchar_type *tail);
 }}}
 
+ダブル配列を構成する 2 つの配列の開始アドレスを指定します．
+unit_array() と tail_array() により取得した配列を保存したファイルに対して mmap() を用いる場合などに使えます．
+Darts::DoubleArrayImpl は，受け取ったメモリを複製したり管理したりしません．
+
 {{{
 const unit_type *unit_array() const;
 const uchar_type *tail_array() const;
 }}}
+
+ダブル配列を構成する 2 つの配列の開始アドレスを返します．
 
 {{{
 size_t unit_size() const;
@@ -249,6 +273,19 @@ size_t tail_length() const;
 size_t tail_total_size() const;
 size_t total_size() const;;
 }}}
+
+unit はダブル配列の核となる配列，tail はキーのサフィックスとレコードを格納する配列に対応しており，
+各メソッドの戻り値は以下のようになっています．
+
+|| *メソッド* || *戻り値* ||
+|| unit_size() || 各要素のサイズ ||
+|| unit_num() || 要素数 ||
+|| unit_total_size() || unit_size() * unit_num() ||
+|| unused_unit_num() || 使われていない要素の数 ||
+|| tail_size() || 各要素のサイズ ||
+|| tail_length() || 要素数 ||
+|| tail_total_size() || tail_size() * tail_length() ||
+|| total_size() || unit_total_size() + tail_total_size() ||
 
 === 互換用のメソッド ===
 
