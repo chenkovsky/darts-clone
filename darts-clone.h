@@ -246,6 +246,7 @@ public:
 		(static_cast<size_t>(1) << RecordIDBits) - 1;
 
 	DoubleArrayUnit() : values_(0) {}
+	DoubleArrayUnit(base_type values) : values_(values) {}
 
 	void set_is_leaf()
 	{
@@ -287,6 +288,7 @@ public:
 		assert(this->linked_to() == linked_to);
 	}
 
+	base_type values() const { return values_; }
 	bool is_leaf() const
 	{
 		return (values_ & static_cast<base_type>(1))
@@ -1030,7 +1032,7 @@ public:
 		assert(typeid(IndexType) == typeid(size_t));
 		base_type base_type_index = static_cast<base_type>(da_index);
 		value_type value =
-			traverse(query_type(key, length), base_type_index, key_index);
+			traverse(key, base_type_index, key_index, length);
 		da_index = static_cast<IndexType>(base_type_index);
 		return value;
 	}
@@ -1040,7 +1042,10 @@ public:
 	{
 		if (!length)
 			length = LengthFunc()(key);
-		return traverse(query_type(key, length), da_index, key_index);
+		unit_type unit(!da_index ? unit_[0] : da_index);
+		value_type value = traverse(query_type(key, length), unit, key_index);
+		da_index = unit.values();
+		return value;
 	}
 
 private:
@@ -1096,9 +1101,8 @@ private:
 		ResultType &result, base_type da_index) const
 	{
 		size_t key_index = 0;
-		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
-		if (!da_index)
-			unit = unit_[0];
+		unit_type unit(!da_index ? unit_[0] : da_index);
+
 		set_result(&result, static_cast<value_type>(-1), 0);
 
 		if (!unit.is_leaf())
@@ -1132,10 +1136,8 @@ private:
 		size_t max_num_of_results, base_type da_index) const
 	{
 		size_t key_index = 0;
-		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
-		if (!da_index)
-			unit = unit_[0];
 		size_t num_of_results = 0;
+		unit_type unit(!da_index ? unit_[0] : da_index);
 
 		for ( ; ; ++key_index)
 		{
@@ -1198,12 +1200,8 @@ private:
 	}
 
 	value_type traverse(const query_type &query,
-		base_type &da_index, size_t &key_index) const
+		unit_type &unit, size_t &key_index) const
 	{
-		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
-		if (!da_index)
-			unit = unit_[0];
-
 		if (!unit.is_leaf())
 		{
 			for ( ; query[key_index] != static_cast<char_type>(0); ++key_index)

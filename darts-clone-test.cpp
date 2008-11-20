@@ -94,7 +94,7 @@ int test_darts_exact_match_search(const Dictionary &da,
 		value_type result;
 		if (da.exactMatchSearch(keys[i], result) != 0)
 		{
-			ERR << "exactMatchSearch() failed" << endl;
+			ERR << "exactMatchSearch() failed: " << endl;
 			return 1;
 		}
 
@@ -169,11 +169,10 @@ int test_darts_common_prefix_search(const Dictionary &da,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointerPointer>
+template <typename IndexType, typename Dictionary, typename KeyPointerPointer>
 int test_darts_traverse(const Dictionary &da,
 	size_t num_of_keys, KeyPointerPointer keys)
 {
-	typedef typename Dictionary::base_type base_type;
 	typedef typename Dictionary::value_type value_type;
 
 	for (size_t i = 0; i < num_of_keys; ++i)
@@ -182,8 +181,7 @@ int test_darts_traverse(const Dictionary &da,
 
 		for (size_t j = 0; j <= length; ++j)
 		{
-			// size_t is also available if a dictionary is not so large.
-			base_type da_index = 0;
+			IndexType da_index = 0;
 			size_t key_index = 0;
 			value_type value = da.traverse(keys[i], da_index, key_index, j);
 			if (value == static_cast<value_type>(-2))
@@ -214,7 +212,11 @@ int test_darts_matching(const Dictionary &da,
 	if (test_darts_common_prefix_search(da, num_of_keys, keys) != 0)
 		return 1;
 
-	if (test_darts_traverse(da, num_of_keys, keys) != 0)
+	if (test_darts_traverse<size_t>(da, num_of_keys, keys) != 0)
+		return 1;
+
+	if (test_darts_traverse<typename Dictionary::base_type>(
+		da, num_of_keys, keys) != 0)
 		return 1;
 
 	return 0;
