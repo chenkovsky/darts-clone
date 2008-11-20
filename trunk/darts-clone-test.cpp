@@ -14,6 +14,8 @@
 
 using namespace std;
 
+#define ERR (cerr << __FILE__ << ':' << __LINE__ << " :error: ")
+
 namespace
 {
 
@@ -81,7 +83,8 @@ int progress_bar(size_t current, size_t total)
 }  // namespace
 
 template <typename Dictionary, typename KeyPointerPointer>
-int darts(const Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
+int test_darts_exact_match_search(const Dictionary &da,
+	size_t num_of_keys, KeyPointerPointer keys)
 {
 	typedef typename Dictionary::value_type value_type;
 	typedef typename Dictionary::result_pair_type result_pair_type;
@@ -89,10 +92,15 @@ int darts(const Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 	for (size_t i = 0; i < num_of_keys; ++i)
 	{
 		value_type result;
-		if (da.exactMatchSearch(keys[i], result) != 0 ||
-			static_cast<size_t>(result) != i)
+		if (da.exactMatchSearch(keys[i], result) != 0)
 		{
-			cerr << "Exact matching failed" << endl;
+			ERR << "exactMatchSearch() failed" << endl;
+			return 1;
+		}
+
+		if (static_cast<size_t>(result) != i)
+		{
+			ERR << "exactMatchSearch() failed: " << result << endl;
 			return 1;
 		}
 
@@ -101,30 +109,58 @@ int darts(const Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 			static_cast<size_t>(result_pair.value) != i ||
 			result_pair.length != strlen(keys[i]))
 		{
-			cerr << "Exact matching failed" << endl;
+			ERR << "exactMatchSearch() failed: "
+				<< result_pair.value << ", " << result_pair.length << endl;
 			return 1;
 		}
+	}
 
-		value_type results[256];
-		result_pair_type result_pairs[256];
-		size_t num_of_results, num_of_result_pairs;
-		num_of_results = da.commonPrefixSearch(keys[i], results, 256);
-		num_of_result_pairs = da.commonPrefixSearch(
-			keys[i], result_pairs, 256);
+	return 0;
+}
 
-		if (!num_of_results || num_of_results != num_of_result_pairs ||
-			static_cast<size_t>(results[num_of_results - 1]) != i ||
-			static_cast<size_t>(result_pairs[num_of_results - 1].value) != i)
+template <typename Dictionary, typename KeyPointerPointer>
+int test_darts_common_prefix_search(const Dictionary &da,
+	size_t num_of_keys, KeyPointerPointer keys)
+{
+	typedef typename Dictionary::value_type value_type;
+	typedef typename Dictionary::result_pair_type result_pair_type;
+
+	enum { MAX_NUM_OF_RESULTS = 256 };
+
+	value_type results[MAX_NUM_OF_RESULTS];
+	result_pair_type result_pairs[MAX_NUM_OF_RESULTS];
+
+	for (size_t i = 0; i < num_of_keys; ++i)
+	{
+		size_t num_of_results = da.commonPrefixSearch(
+			keys[i], results, MAX_NUM_OF_RESULTS);
+		size_t num_of_result_pairs = da.commonPrefixSearch(
+			keys[i], result_pairs, MAX_NUM_OF_RESULTS);
+
+		if (!num_of_results || num_of_results != num_of_result_pairs)
 		{
-			cerr << "Prefix matching failed" << endl;
+			ERR << "commonPrefixSearch() failed: "
+				<< num_of_results << ", " << num_of_result_pairs << endl;
 			return 1;
 		}
 
+		if (num_of_results <= MAX_NUM_OF_RESULTS &&
+			(static_cast<size_t>(results[num_of_results - 1]) != i ||
+			static_cast<size_t>(result_pairs[num_of_results - 1].value) != i))
+		{
+			ERR << "commonPrefixSearch() failed: "
+				<< results[num_of_results - 1] << ", "
+				<< result_pairs[num_of_results - 1].value << endl;
+			return 1;
+		}
+
+		if (num_of_results > MAX_NUM_OF_RESULTS)
+			num_of_results = num_of_result_pairs = MAX_NUM_OF_RESULTS;
 		for (size_t j = 0; j < num_of_results; ++j)
 		{
 			if (results[j] != result_pairs[j].value)
 			{
-				cerr << "Prefix matching failed" << endl;
+				ERR << "commonPrefixSearch() failed: " << results[j] << endl;
 				return 1;
 			}
 		}
@@ -134,20 +170,71 @@ int darts(const Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 }
 
 template <typename Dictionary, typename KeyPointerPointer>
-int mkdarts(Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
+int test_darts_traverse(const Dictionary &da,
+	size_t num_of_keys, KeyPointerPointer keys)
+{
+	typedef typename Dictionary::base_type base_type;
+	typedef typename Dictionary::value_type value_type;
+
+	for (size_t i = 0; i < num_of_keys; ++i)
+	{
+		size_t length = strlen(keys[i]);
+
+		for (size_t j = 0; j <= length; ++j)
+		{
+			// size_t is also available if a dictionary is not so large.
+			base_type da_index = 0;
+			size_t key_index = 0;
+			value_type value = da.traverse(keys[i], da_index, key_index, j);
+			if (value == static_cast<value_type>(-2))
+			{
+				ERR << "traverse() failed: " << value << endl;
+				return 1;
+			}
+
+			value = da.traverse(keys[i], da_index, key_index, length);
+			if (value != static_cast<value_type>(i))
+			{
+				ERR << "traverse() failed: " << value << endl;
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+template <typename Dictionary, typename KeyPointerPointer>
+int test_darts_matching(const Dictionary &da,
+	size_t num_of_keys, KeyPointerPointer keys)
+{
+	if (test_darts_exact_match_search(da, num_of_keys, keys) != 0)
+		return 1;
+
+	if (test_darts_common_prefix_search(da, num_of_keys, keys) != 0)
+		return 1;
+
+	if (test_darts_traverse(da, num_of_keys, keys) != 0)
+		return 1;
+
+	return 0;
+}
+
+template <typename Dictionary, typename KeyPointerPointer>
+int test_darts(Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 {
 	if (da.build(num_of_keys, keys) != 0 ||
-		darts(da, num_of_keys, keys) != 0 ||
+		test_darts_matching(da, num_of_keys, keys) != 0 ||
 		da.build(num_of_keys, keys, 0) != 0 ||
-		darts(da, num_of_keys, keys) != 0 ||
+		test_darts_matching(da, num_of_keys, keys) != 0 ||
 		da.build(num_of_keys, keys, 0, 0) != 0 ||
-		darts(da, num_of_keys, keys) != 0 ||
+		test_darts_matching(da, num_of_keys, keys) != 0 ||
 		da.build(num_of_keys, keys, 0, 0, ProgressBar()) != 0 ||
-		darts(da, num_of_keys, keys) != 0 ||
+		test_darts_matching(da, num_of_keys, keys) != 0 ||
 		da.build(num_of_keys, keys, 0, 0, progress_bar) != 0 ||
-		darts(da, num_of_keys, keys) != 0 ||
+		test_darts_matching(da, num_of_keys, keys) != 0 ||
 		da.build(num_of_keys, keys, 0, 0, 0) != 0 ||
-		darts(da, num_of_keys, keys) != 0)
+		test_darts_matching(da, num_of_keys, keys) != 0)
 	{
 		return 1;
 	}
@@ -156,12 +243,12 @@ int mkdarts(Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 }
 
 template <typename Dictionary, typename KeyPointer>
-int mkdarts(size_t num_of_keys, KeyPointer *keys)
+int test_darts(size_t num_of_keys, KeyPointer *keys)
 {
 	Dictionary da;
 
-	if (mkdarts(da, num_of_keys, keys) != 0 ||
-		mkdarts(da, num_of_keys, const_cast<const KeyPointer *>(keys)) != 0)
+	if (test_darts(da, num_of_keys, keys) != 0 ||
+		test_darts(da, num_of_keys, const_cast<const KeyPointer *>(keys)) != 0)
 	{
 		return 1;
 	}
@@ -181,7 +268,7 @@ int main(int argc, char **argv)
 	ifstream key_file(key_file_path.c_str());
 	if (!key_file.is_open())
 	{
-		cerr << "Error: cannot open: " << key_file_path << endl;
+		ERR << "failed to open file: " << key_file_path << endl;
 		return 1;
 	}
 
@@ -194,16 +281,16 @@ int main(int argc, char **argv)
 	for (size_t i = 0; i < keys.size(); ++i)
 		key_ptrs[i] = keys[i].c_str();
 
-	if (mkdarts<Darts::DoubleArray>(
+	if (test_darts<Darts::DoubleArray>(
 		keys.size(), const_cast<char **>(&key_ptrs[0])) != 0 ||
-		mkdarts<Darts::DoubleArray>(keys.size(), &key_ptrs[0]) != 0)
+		test_darts<Darts::DoubleArray>(keys.size(), &key_ptrs[0]) != 0)
 	{
 		return 1;
 	}
 
-	if (mkdarts<Darts::HugeDoubleArray>(
+	if (test_darts<Darts::HugeDoubleArray>(
 		keys.size(), const_cast<char **>(&key_ptrs[0])) != 0 ||
-		mkdarts<Darts::HugeDoubleArray>(keys.size(), &key_ptrs[0]) != 0)
+		test_darts<Darts::HugeDoubleArray>(keys.size(), &key_ptrs[0]) != 0)
 	{
 		return 1;
 	}

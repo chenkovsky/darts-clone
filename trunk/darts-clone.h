@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <stack>
+#include <typeinfo>
 #include <vector>
 
 namespace Darts
@@ -994,31 +995,52 @@ public:
 	}
 
 	template <typename ResultType>
-	int exactMatchSearch(const char_type *key,
-		ResultType &result, size_t length = 0, size_t node_pos = 0) const
+	int exactMatchSearch(const char_type *key, ResultType &result,
+		size_t length = 0, base_type da_index = 0) const
 	{
 		if (!length)
 			length = LengthFunc()(key);
-		return exactMatchSearch(query_type(key, length), result, node_pos);
+		return exactMatchSearch(query_type(key, length), result, da_index);
 	}
 	template <typename ResultType>
 	ResultType exactMatchSearch(const char_type *key,
-		size_t length = 0, size_t node_pos = 0) const
+		size_t length = 0, base_type da_index = 0) const
 	{
 		ResultType result;
-		exactMatchSearch(key, result, length, node_pos);
+		exactMatchSearch(key, result, length, da_index);
 		return result;
 	}
 
 	template <typename ResultType>
-	size_t commonPrefixSearch(
-		const char_type *key, ResultType *results, size_t max_num_of_results,
-		size_t length = 0, size_t node_pos = 0) const
+	size_t commonPrefixSearch(const char_type *key,
+		ResultType *results, size_t max_num_of_results,
+		size_t length = 0, base_type da_index = 0) const
 	{
 		if (!length)
 			length = LengthFunc()(key);
 		return commonPrefixSearch(query_type(key, length),
-			results, max_num_of_results, node_pos);
+			results, max_num_of_results, da_index);
+	}
+
+	// For compatibility (size_t).
+	template <typename IndexType>
+	value_type traverse(const char_type *key, IndexType &da_index,
+		size_t &key_index, size_t length = 0) const
+	{
+		assert(typeid(IndexType) == typeid(size_t));
+		base_type base_type_index = static_cast<base_type>(da_index);
+		value_type value =
+			traverse(query_type(key, length), base_type_index, key_index);
+		da_index = static_cast<IndexType>(base_type_index);
+		return value;
+	}
+
+	value_type traverse(const char_type *key, base_type &da_index,
+		size_t &key_index, size_t length = 0) const
+	{
+		if (!length)
+			length = LengthFunc()(key);
+		return traverse(query_type(key, length), da_index, key_index);
 	}
 
 private:
@@ -1071,32 +1093,34 @@ private:
 
 	template <typename ResultType>
 	int exactMatchSearch(const query_type &query,
-		ResultType &result, size_t node_pos) const
+		ResultType &result, base_type da_index) const
 	{
+		size_t key_index = 0;
+		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
+		if (!da_index)
+			unit = unit_[0];
 		set_result(&result, static_cast<value_type>(-1), 0);
 
-		size_t prefix_length = 0;
-		for (size_t i = 0; ; ++i)
+		if (!unit.is_leaf())
 		{
-			node_pos = unit_[node_pos].offset() ^ query[i];
-			if (unit_[node_pos].is_leaf())
+			for ( ; ; ++key_index)
 			{
-				prefix_length = i;
-				break;
+				unit = unit_[unit.offset() ^ query[key_index]];
+				if (unit.is_leaf())
+					break;
+				else if (unit.label() != query[key_index])
+					return -1;
 			}
-			else if (unit_[node_pos].label() != query[i])
-				return -1;
 		}
 
-		const uchar_type *tail = &tail_[unit_[node_pos].linked_to()];
-		for (size_t i = 0; tail[i] == query[prefix_length + i]; ++i)
+		const uchar_type *tail = &tail_[unit.linked_to()] - key_index;
+		for ( ; tail[key_index] == query[key_index]; ++key_index)
 		{
-			if (tail[i] == static_cast<uchar_type>(0))
+			if (tail[key_index] == static_cast<uchar_type>(0))
 			{
 				const value_type *records = static_cast<const value_type *>(
-					static_cast<const void *>(tail + i + 1));
-				set_result(&result, records[unit_[node_pos].record_id()],
-					prefix_length + i);
+					static_cast<const void *>(tail + key_index + 1));
+				set_result(&result, records[unit.record_id()], key_index);
 				return 0;
 			}
 		}
@@ -1105,48 +1129,47 @@ private:
 
 	template <typename ResultType>
 	size_t commonPrefixSearch(const query_type &query, ResultType *results,
-		size_t max_num_of_results, size_t node_pos) const
+		size_t max_num_of_results, base_type da_index) const
 	{
+		size_t key_index = 0;
+		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
+		if (!da_index)
+			unit = unit_[0];
 		size_t num_of_results = 0;
 
-		size_t prefix_length = 0;
-		for (size_t i = 0; ; ++i)
+		for ( ; ; ++key_index)
 		{
-			if (query[i] != static_cast<uchar_type>(0))
+			if (query[key_index] != static_cast<uchar_type>(0))
 				take_prefix_key(results, num_of_results,
-					max_num_of_results, node_pos, i);
+					max_num_of_results, unit, key_index);
 
-			node_pos = unit_[node_pos].offset() ^ query[i];
-			if (unit_[node_pos].is_leaf())
-			{
-				prefix_length = i;
+			unit = unit_[unit.offset() ^ query[key_index]];
+			if (unit.is_leaf())
 				break;
-			}
-			else if (unit_[node_pos].label() != query[i])
+			else if (unit.label() != query[key_index])
 				return num_of_results;
 		}
 
-		const uchar_type *tail = &tail_[unit_[node_pos].linked_to()];
-		if (*tail != query[prefix_length])
+		const uchar_type *tail = &tail_[unit.linked_to()] - key_index;
+		if (tail[key_index] != query[key_index])
 			return num_of_results;
 
-		for (size_t i = 0; ; ++i)
+		for ( ; ; ++key_index)
 		{
-			if (tail[i] == static_cast<uchar_type>(0))
+			if (tail[key_index] == static_cast<uchar_type>(0))
 			{
 				if (num_of_results < max_num_of_results)
 				{
 					const value_type *records =
 						static_cast<const value_type *>(
-							static_cast<const void *>(tail + i + 1));
+							static_cast<const void *>(tail + key_index + 1));
 					set_result(&results[num_of_results],
-						records[unit_[node_pos].record_id()],
-						prefix_length + i);
+						records[unit.record_id()], key_index);
 				}
 				++num_of_results;
 				break;
 			}
-			else if (tail[i] != query[prefix_length + i])
+			else if (tail[key_index] != query[key_index])
 				break;
 		}
 		return num_of_results;
@@ -1154,13 +1177,13 @@ private:
 
 	template <typename ResultType>
 	void take_prefix_key(ResultType *results, size_t &num_of_results,
-		size_t max_num_of_results, size_t node_pos, size_t length) const
+		size_t max_num_of_results, unit_type unit, size_t length) const
 	{
-		node_pos = unit_[node_pos].offset();
-		if (!unit_[node_pos].is_leaf())
+		unit = unit_[unit.offset()];
+		if (!unit.is_leaf())
 			return;
 
-		const uchar_type *tail = &tail_[unit_[node_pos].linked_to()];
+		const uchar_type *tail = &tail_[unit.linked_to()];
 		if (*tail != static_cast<uchar_type>(0))
 			return;
 
@@ -1169,9 +1192,67 @@ private:
 			const value_type *records = static_cast<const value_type *>(
 				static_cast<const void *>(tail + 1));
 			set_result(&results[num_of_results],
-				records[unit_[node_pos].record_id()], length);
+				records[unit.record_id()], length);
 		}
 		++num_of_results;
+	}
+
+	value_type traverse(const query_type &query,
+		base_type &da_index, size_t &key_index) const
+	{
+		unit_type &unit = reinterpret_cast<unit_type &>(da_index);
+		if (!da_index)
+			unit = unit_[0];
+
+		if (!unit.is_leaf())
+		{
+			for ( ; query[key_index] != static_cast<char_type>(0); ++key_index)
+			{
+				unit_type next_unit = unit_[unit.offset() ^ query[key_index]];
+				if (next_unit.is_leaf())
+				{
+					unit = next_unit;
+					break;
+				}
+				else if (query[key_index] == static_cast<char_type>(0))
+					return static_cast<value_type>(-1);
+				else if (next_unit.label() != query[key_index])
+					return static_cast<value_type>(-2);
+				unit = next_unit;
+			}
+
+			if (query[key_index] == static_cast<char_type>(0))
+			{
+				unit_type leaf = unit_[unit.offset()];
+				if (!leaf.is_leaf())
+					return static_cast<value_type>(-1);
+
+				const uchar_type *tail = &tail_[leaf.linked_to()];
+				if (*tail != static_cast<uchar_type>(0))
+					return static_cast<value_type>(-1);
+
+				const value_type *records = static_cast<const value_type *>(
+					static_cast<const void *>(tail + 1));
+				return records[leaf.record_id()];
+			}
+		}
+
+		const uchar_type *tail = &tail_[unit.linked_to()] - key_index;
+		for ( ; tail[key_index] == query[key_index]; ++key_index)
+		{
+			if (tail[key_index] == static_cast<uchar_type>(0))
+			{
+				const value_type *records = static_cast<const value_type *>(
+					static_cast<const void *>(tail + key_index + 1));
+				unit.set_linked_to(static_cast<size_t>(
+					tail + key_index - tail_));
+				return records[unit.record_id()];
+			}
+		}
+		unit.set_linked_to(static_cast<size_t>(tail + key_index - tail_));
+		if (query[key_index] == static_cast<uchar_type>(0))
+			return static_cast<value_type>(-1);
+		return static_cast<value_type>(-2);
 	}
 
 private:
