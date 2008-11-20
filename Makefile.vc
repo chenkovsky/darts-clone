@@ -12,6 +12,9 @@ darts-clone: darts-clone.obj
 darts-clone-test: darts-clone-test.obj
 	${CC} ${CFLAGS} darts-clone-test.cpp
 
+check: ALL
+	(cd tests; sh test-darts-clone.sh)
+
 clean: ALL
 	rm -f *.obj
 
