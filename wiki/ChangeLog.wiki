@@ -2,6 +2,9 @@
 
 = 変更履歴 =
 
+ * 2008/11/21
+  * darts-clone-0.32c.tar.gz をアップロード．
+  * traverse() を実装．
  * 2008/10/13
   * darts-clone-0.32b.tar.gz をアップロード．
   * std::sort() の代わりに std::stable_sort() を使うように修正．
