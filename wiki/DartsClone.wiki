@@ -7,21 +7,20 @@
 
 Darts clone は，Darts（Double-ARray Trie System）のクローンとして開発された C++ ヘッダライブラリです．
 Darts と比較した場合の利点は，辞書のサイズを大幅に削減できることです．
-ただし，実装上の理由により一部の機能が利用できなくなっています．
 
  * Darts: Double-ARray Trie System
   * http://chasen.org/~taku/software/darts/
 
-== 制限事項 ==
+== 注意事項 ==
 
-Darts clone には，以下のような制限があります．
+Darts clone には，以下のような注意事項があります．
 
  * キー集合の規模
   * キー数が 200 万件を超えるほど大規模になると，構築に失敗する可能性があります．
-  * そのような場合，Darts::DoubleArray の代わりに Darts::HugeDoubleArray を利用してください．
- * 一部機能の制限
-  * メソッド traverse() は提供されません．
-  * メソッド exactMatchSearch() および commonPrefixSearch() において，サフィックス上に検索開始位置を指定することはできません．
+  * そのような場合には，Darts::DoubleArray の代わりに Darts::HugeDoubleArray を利用してください．
+ * 使用する型
+  * Darts::HugeDoubleArray::traverse() に 32 ビットの std::size_t を渡すと探索情報が失われる可能性があります．
+  * そのような場合には，Darts::HugeDoubleArray::base_type を使用してください．
 
 == その他の変更点 ==
 
