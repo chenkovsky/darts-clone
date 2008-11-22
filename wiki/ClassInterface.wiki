@@ -96,14 +96,19 @@ public:
 
 	template <class ResultType>
 	int exactMatchSearch(const char_type *key,
-		ResultType &result, size_t length = 0, size_t node_pos = 0) const;
+		ResultType &result, size_t length = 0, base_type da_index = 0) const;
 	template <class ResultType>
 	ResultType exactMatchSearch(const char_type *key,
-		size_t length = 0, size_t node_pos = 0) const;
+		size_t length = 0, base_type da_index = 0) const;
 
 	template <typename ResultType>
 	size_t commonPrefixSearch(const char_type *key, ResultType *results,
-		size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
+		size_t max_num_of_results, size_t length = 0, base_type da_index = 0) const;
+
+	value_type traverse(const char_type *key, size_t &da_index,
+		size_t &key_index, size_t length = 0) const;
+	value_type traverse(const char_type *key, base_type &da_index,
+		size_t &key_index, size_t length = 0) const;
 };
 
 }  // namespace Darts
@@ -226,7 +231,7 @@ offset を指定すると，ファイルの先頭 offset バイトをスキッ�
 
 {{{
 template <typename ResultType>
-int exactMatchSearch(const char_type *key, ResultType &result, size_t length = 0, size_t node_pos = 0) const
+int exactMatchSearch(const char_type *key, ResultType &result, size_t length = 0, base_type da_index = 0) const
 }}}
 
 入力文字列に完全一致するキーが登録されているかどうかを確認します．
@@ -234,7 +239,7 @@ int exactMatchSearch(const char_type *key, ResultType &result, size_t length = 0
 key には入力文字列，result には結果を受け取るためのオブジェクト，
 length には入力文字列の長さを指定します．
 length を省略すると，入力文字列の長さは LengthFunc により計算されます．
-node_pos には検索開始位置を指定できますが，正しく動作するという保証はありません．
+da_index には，traverse() により取得した検索位置を指定できます．
 
 ResultType には，Darts::DoubleArrayImpl::value_type と Darts::DoubleArrayImpl::result_pair_type を指定できます．
 value_type を指定すると，キーと対応する値のみを取得できます．
@@ -242,7 +247,7 @@ value_type を指定すると，キーと対応する値のみを取得できま
 
 {{{
 template <typename ResultType>
-ResultType exactMatchSearch(const char_type *key, size_t length = 0, size_t node_pos = 0) const;
+ResultType exactMatchSearch(const char_type *key, size_t length = 0, base_type da_index = 0) const;
 }}}
 
 入力文字列に完全一致するキーが登録されているかどうかを確認します．
@@ -253,17 +258,39 @@ ResultType exactMatchSearch(const char_type *key, size_t length = 0, size_t node
 {{{
 template <typename ResultType>
 size_t commonPrefixSearch(const char_type *key, ResultType *results,
-	size_t max_num_of_results, size_t length = 0, size_t node_pos = 0) const;
+	size_t max_num_of_results, size_t length = 0, base_type da_index = 0) const;
 }}}
 
 key には検索文字列，results には検索結果を受け取るための配列を指定します．
 max_num_of_results には受け取る検索結果の数，length には検索文字列の長さを指定します．
 length を省略すると，入力文字列の長さは LengthFunc により計算されます．
-node_pos には検索開始位置を指定できますが，正しく動作するという保証はありません．
+da_index には，traverse() により取得した検索位置を指定できます．
 
 戻り値は検索結果の数（マッチしたキーの数）になります．
 各キーに対応する値や各キーの長さは，results を参照することで取得できます．
 検索結果の数が max_num_of_results より大きい場合，max_num_of_results 個までを results に格納し，実際の検索結果の数が戻り値になります．
+
+{{{
+template <typename IndexType>
+value_type traverse(const char_type *key, IndexType &da_index, size_t &key_index, size_t length = 0) const
+}}}
+
+互換性のために提供されているメソッドです．
+base_type の代替として size_t を許容します．
+
+{{{
+value_type traverse(const char_type *key, base_type &da_index, size_t &key_index, size_t length = 0) const
+}}}
+
+入力文字列に従ってダブル配列を探索します．
+
+key には入力文字列，length には入力文字列の長さを指定します．
+length を省略すると，入力文字列の長さは LengthFunc により計算されます．
+da_index にはダブル配列の探索位置，key_index には入力文字列の照合位置を指定します．
+初期状態から探索を開始したい場合，da_index と key_index に 0 を格納した状態で呼び出してください．
+
+探索により完全一致するキーがあれば，対応する値を返します．
+また，キーの終端に到達した場合は -1 を返し，途中で探索に失敗した場合は -2 を返します．
 
 === その他のメソッド ===
 
