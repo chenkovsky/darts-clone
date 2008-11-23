@@ -7,6 +7,7 @@
 // All rights reserved.
 
 #define DARTS_VERSION "0.32"
+#define DARTS_CLONE_VERSION "0.32d"
 
 #ifdef _MSC_VER
 #include <stdio.h>
@@ -424,6 +425,7 @@ private:
 		CharType, UCharType, ValueType, BaseType> range_type;
 
 	static const size_t BlockSize = 1 << (sizeof(uchar_type) * 8);
+	static const size_t UnlockedSize = 1 << 12;
 
 public:
 	static bool build(std::vector<key_type> &keys,
@@ -443,7 +445,7 @@ private:
 	DoubleArrayBuilder(std::vector<key_type> &keys, ProgressFunc progress_func)
 		: keys_(keys), unit_vector_(), tail_vector_(),
 		progress_func_(progress_func), first_unused_index_(0),
-		extra_vector_() {}
+		first_unlocked_index_(0), extra_vector_() {}
 
 	bool build_dictionary()
 	{
@@ -596,13 +598,13 @@ private:
 	size_t find_offset(Iterator begin, Iterator end)
 	{
 		uchar_type label = begin->first;
-		if (first_unused_index_ >= extra_vector_.size())
-			return first_unused_index_ ^ label;
+		if (first_unlocked_index_ >= extra_vector_.size())
+			return first_unlocked_index_ ^ label;
 
-		assert(!extra_vector_[first_unused_index_].is_used());
+		assert(!extra_vector_[first_unlocked_index_].is_used());
 
 		++begin;
-		size_t unused_index = first_unused_index_;
+		size_t unused_index = first_unlocked_index_;
 		do
 		{
 			assert(unused_index < extra_vector_.size());
@@ -640,6 +642,12 @@ private:
 			if (first_unused_index_ == index)
 				first_unused_index_ = extra_vector_.size();
 		}
+		if (index == first_unlocked_index_)
+		{
+			first_unlocked_index_ = extra.next();
+			if (first_unlocked_index_ == index)
+				first_unlocked_index_ = extra_vector_.size();
+		}
 		extra_vector_[extra.prev()].set_next(extra.next());
 		extra_vector_[extra.next()].set_prev(extra.prev());
 		extra.set_is_used();
@@ -672,6 +680,16 @@ private:
 		extra_vector_[extra_vector_[first_unused_index_].prev()].set_next(
 			former_size);
 		extra_vector_[first_unused_index_].set_prev(later_size - 1);
+
+		while (first_unlocked_index_ + UnlockedSize < extra_vector_.size())
+		{
+			if (first_unlocked_index_ >
+				extra_vector_[first_unlocked_index_].next())
+				first_unlocked_index_ = extra_vector_.size();
+			else
+				first_unlocked_index_ =
+					extra_vector_[first_unlocked_index_].next();
+		}
 	}
 
 private:
@@ -733,6 +751,7 @@ private:
 	ProgressFunc progress_func_;
 
 	size_t first_unused_index_;
+	size_t first_unlocked_index_;
 	std::vector<extra_type> extra_vector_;
 
 	// Disallows copies.
