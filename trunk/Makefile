@@ -1,16 +1,16 @@
 CC = g++
 CFLAGS = -Wall -O3
 
-MKDARTS-SRCS = mkdarts-clone.cpp
-MKDARTS-OBJS = $(MKDARTS-SRCS:.cpp=.o)
+MKDARTS_SRCS = mkdarts-clone.cpp
+MKDARTS_OBJS = $(MKDARTS_SRCS:.cpp=.o)
 MKDARTS = mkdarts-clone
 
-DARTS-SRCS = darts-clone.cpp
-DARTS-OBJS = $(DARTS-SRCS:.cpp=.o)
+DARTS_SRCS = darts-clone.cpp
+DARTS_OBJS = $(DARTS_SRCS:.cpp=.o)
 DARTS = darts-clone
 
-TEST-SRCS = darts-clone-test.cpp
-TEST-OBJS = $(TEST-SRCS:.cpp=.o)
+TEST_SRCS = darts-clone-test.cpp
+TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 TEST = darts-clone-test
 
 
@@ -19,14 +19,14 @@ TEST = darts-clone-test
 
 ALL: $(MKDARTS) $(DARTS) $(TEST)
 
-$(MKDARTS): $(MKDARTS-OBJS)
-	$(CC) -o $@ $(CFLAGS) $(MKDARTS-OBJS)
+$(MKDARTS): $(MKDARTS_OBJS)
+	$(CC) -o $@ $(CFLAGS) $(MKDARTS_OBJS)
 
-$(DARTS): $(DARTS-OBJS)
-	$(CC) -o $@ $(CFLAGS) $(DARTS-OBJS)
+$(DARTS): $(DARTS_OBJS)
+	$(CC) -o $@ $(CFLAGS) $(DARTS_OBJS)
 
-$(TEST): $(TEST-OBJS)
-	$(CC) -o $@ $(CFLAGS) $(TEST-OBJS)
+$(TEST): $(TEST_OBJS)
+	$(CC) -o $@ $(CFLAGS) $(TEST_OBJS)
 
 check: ALL
 	(cd tests; sh test-darts-clone.sh)
