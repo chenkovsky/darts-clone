@@ -1,21 +1,37 @@
 CC = cl
-CFLAGS = -W4 -Ox -EHsc
+CFLAGS = -EHsc -W4 -Ox
 
-ALL: mkdarts-clone darts-clone darts-clone-test
+MKDARTS_SRCS = mkdarts-clone.cpp
+MKDARTS_OBJS = $(MKDARTS_SRCS:.cpp=.obj)
+MKDARTS = mkdarts-clone
 
-mkdarts-clone: mkdarts-clone.obj
-	$(CC) $(CFLAGS) mkdarts-clone.cpp
+DARTS_SRCS = darts-clone.cpp
+DARTS_OBJS = $(DARTS_SRCS:.cpp=.obj)
+DARTS = darts-clone
 
-darts-clone: darts-clone.obj
-	$(CC) $(CFLAGS) darts-clone.cpp
+TEST_SRCS = darts-clone-test.cpp
+TEST_OBJS = $(TEST_SRCS:.cpp=.obj)
+TEST = darts-clone-test
 
-darts-clone-test: darts-clone-test.obj
-	$(CC) $(CFLAGS) darts-clone-test.cpp
 
-check: ALL
+.cpp.obj:
+	$(CC) -c $(CFLAGS) $<
+
+ALL: $(MKDARTS) $(DARTS) $(TEST)
+
+$(MKDARTS): $(MKDARTS_OBJS)
+	$(CC) -Fe$@ $(CFLAGS) $(MKDARTS_OBJS)
+
+$(DARTS): $(DARTS_OBJS)
+	$(CC) -Fe$@ $(CFLAGS) $(DARTS_OBJS)
+
+$(TEST): $(TEST_OBJS)
+	$(CC) -Fe$@ $(CFLAGS) $(TEST_OBJS)
+
+check:
 	(cd tests; sh test-darts-clone.sh)
 
-clean: ALL
+clean:
 	rm -f *.obj
 
 darts-clone.obj: darts-clone.h darts-clone.cpp

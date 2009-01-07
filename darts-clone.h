@@ -1,11 +1,6 @@
 #ifndef DARTS_H_
 #define DARTS_H_
 
-// For debugging.
-#include <iostream>
-using namespace std;
-#define LOG (cerr << __FILE__ << ':' << __LINE__ << ": ")
-
 // A clone of the Darts (Double-ARray Trie System)
 //
 // Copyright (C) 2008 Susumu Yata <syata@acm.org>
