@@ -1041,7 +1041,7 @@ namespace Darts
 				long file_size = fp.size();
 				if (file_size < 0)
 					return -1;
-				size = static_cast<size_t>(file_size);
+				size = static_cast<size_t>(file_size) - offset;
 			}
 
 			base_type unit_num = 0;
