@@ -92,7 +92,7 @@ int test_darts_exact_match_search(const Dictionary &da,
 	for (size_t i = 0; i < num_of_keys; ++i)
 	{
 		value_type result;
-		if (da.exactMatchSearch(keys[i], result) != 0)
+		if (!da.exactMatchSearch(keys[i], result))
 		{
 			ERR << "exactMatchSearch() failed: " << endl;
 			return 1;
@@ -105,7 +105,7 @@ int test_darts_exact_match_search(const Dictionary &da,
 		}
 
 		result_pair_type result_pair;
-		if (da.exactMatchSearch(keys[i], result_pair) != 0 ||
+		if (!da.exactMatchSearch(keys[i], result_pair) ||
 			static_cast<size_t>(result_pair.value) != i ||
 			result_pair.length != strlen(keys[i]))
 		{
@@ -169,7 +169,7 @@ int test_darts_common_prefix_search(const Dictionary &da,
 	return 0;
 }
 
-template <typename IndexType, typename Dictionary, typename KeyPointerPointer>
+template <typename Dictionary, typename KeyPointerPointer>
 int test_darts_traverse(const Dictionary &da,
 	size_t num_of_keys, KeyPointerPointer keys)
 {
@@ -179,9 +179,9 @@ int test_darts_traverse(const Dictionary &da,
 	{
 		size_t length = strlen(keys[i]);
 
-		for (size_t j = 0; j <= length; ++j)
+		for (size_t j = 1; j <= length; ++j)
 		{
-			IndexType da_index = 0;
+			size_t da_index = 0;
 			size_t key_index = 0;
 			value_type value = da.traverse(keys[i], da_index, key_index, j);
 			if (value == static_cast<value_type>(-2))
@@ -212,11 +212,7 @@ int test_darts_matching(const Dictionary &da,
 	if (test_darts_common_prefix_search(da, num_of_keys, keys) != 0)
 		return 1;
 
-	if (test_darts_traverse<size_t>(da, num_of_keys, keys) != 0)
-		return 1;
-
-	if (test_darts_traverse<typename Dictionary::base_type>(
-		da, num_of_keys, keys) != 0)
+	if (test_darts_traverse(da, num_of_keys, keys) != 0)
 		return 1;
 
 	return 0;
@@ -258,6 +254,20 @@ int test_darts(size_t num_of_keys, KeyPointer *keys)
 	return 0;
 }
 
+template <typename ValueType, int IdBits>
+int test_darts(const vector<const char *> &keys)
+{
+	typedef Darts::DoubleArrayBase<ValueType, IdBits> dic_type;
+
+	if (test_darts<dic_type>(keys.size(), const_cast<char **>(&keys[0])) != 0)
+		return 1;
+
+	if (test_darts<dic_type>(keys.size(), &keys[0]) != 0)
+		return 1;
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -283,19 +293,9 @@ int main(int argc, char **argv)
 	for (size_t i = 0; i < keys.size(); ++i)
 		key_ptrs[i] = keys[i].c_str();
 
-	if (test_darts<Darts::DoubleArray>(
-		keys.size(), const_cast<char **>(&key_ptrs[0])) != 0 ||
-		test_darts<Darts::DoubleArray>(keys.size(), &key_ptrs[0]) != 0)
-	{
+	if (test_darts<int, 3>(key_ptrs) != 0 ||
+		test_darts<int, 0>(key_ptrs) != 0)
 		return 1;
-	}
-
-	if (test_darts<Darts::HugeDoubleArray>(
-		keys.size(), const_cast<char **>(&key_ptrs[0])) != 0 ||
-		test_darts<Darts::HugeDoubleArray>(keys.size(), &key_ptrs[0]) != 0)
-	{
-		return 1;
-	}
 
 	return 0;
 }
