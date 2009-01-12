@@ -1218,7 +1218,7 @@ private:
 		agent.set_link(static_cast<base_type>(tail - tail_));
 		if (*query == 0)
 			return static_cast<value_type>(-1);
-		return static_cast<value_type>(-1);
+		return static_cast<value_type>(-2);
 	}
 
 	// Sets a result.

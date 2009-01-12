@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -80,34 +81,27 @@ int progress_bar(size_t current, size_t total)
 	return 1;
 };
 
-}  // namespace
-
 template <typename Dictionary, typename KeyPointerPointer>
 int test_darts_exact_match_search(const Dictionary &da,
-	size_t num_of_keys, KeyPointerPointer keys)
+	const set<string> &key_set, KeyPointerPointer keys)
 {
 	typedef typename Dictionary::value_type value_type;
 	typedef typename Dictionary::result_pair_type result_pair_type;
 
-	for (size_t i = 0; i < num_of_keys; ++i)
+	for (size_t i = 0; i < key_set.size(); ++i)
 	{
 		value_type result;
-		if (!da.exactMatchSearch(keys[i], result))
-		{
-			ERR << "exactMatchSearch() failed: " << endl;
-			return 1;
-		}
-
-		if (static_cast<size_t>(result) != i)
+		if (!da.exactMatchSearch(keys[i], result)
+			|| static_cast<size_t>(result) != i)
 		{
 			ERR << "exactMatchSearch() failed: " << result << endl;
 			return 1;
 		}
 
 		result_pair_type result_pair;
-		if (!da.exactMatchSearch(keys[i], result_pair) ||
-			static_cast<size_t>(result_pair.value) != i ||
-			result_pair.length != strlen(keys[i]))
+		if (!da.exactMatchSearch(keys[i], result_pair)
+			|| static_cast<size_t>(result_pair.value) != i
+			|| result_pair.length != strlen(keys[i]))
 		{
 			ERR << "exactMatchSearch() failed: "
 				<< result_pair.value << ", " << result_pair.length << endl;
@@ -120,7 +114,7 @@ int test_darts_exact_match_search(const Dictionary &da,
 
 template <typename Dictionary, typename KeyPointerPointer>
 int test_darts_common_prefix_search(const Dictionary &da,
-	size_t num_of_keys, KeyPointerPointer keys)
+	const set<string> &key_set, KeyPointerPointer keys)
 {
 	typedef typename Dictionary::value_type value_type;
 	typedef typename Dictionary::result_pair_type result_pair_type;
@@ -130,7 +124,7 @@ int test_darts_common_prefix_search(const Dictionary &da,
 	value_type results[MAX_NUM_OF_RESULTS];
 	result_pair_type result_pairs[MAX_NUM_OF_RESULTS];
 
-	for (size_t i = 0; i < num_of_keys; ++i)
+	for (size_t i = 0; i < key_set.size(); ++i)
 	{
 		size_t num_of_results = da.commonPrefixSearch(
 			keys[i], results, MAX_NUM_OF_RESULTS);
@@ -144,9 +138,12 @@ int test_darts_common_prefix_search(const Dictionary &da,
 			return 1;
 		}
 
-		if (num_of_results <= MAX_NUM_OF_RESULTS &&
-			(static_cast<size_t>(results[num_of_results - 1]) != i ||
-			static_cast<size_t>(result_pairs[num_of_results - 1].value) != i))
+		const value_type &result = results[num_of_results - 1];
+		const result_pair_type &result_pair = result_pairs[num_of_results - 1];
+
+		if (num_of_results <= MAX_NUM_OF_RESULTS
+			&& (static_cast<size_t>(result) != i
+				|| static_cast<size_t>(result_pair.value) != i))
 		{
 			ERR << "commonPrefixSearch() failed: "
 				<< results[num_of_results - 1] << ", "
@@ -171,11 +168,11 @@ int test_darts_common_prefix_search(const Dictionary &da,
 
 template <typename Dictionary, typename KeyPointerPointer>
 int test_darts_traverse(const Dictionary &da,
-	size_t num_of_keys, KeyPointerPointer keys)
+	const set<string> &key_set, KeyPointerPointer keys)
 {
 	typedef typename Dictionary::value_type value_type;
 
-	for (size_t i = 0; i < num_of_keys; ++i)
+	for (size_t i = 0; i < key_set.size(); ++i)
 	{
 		size_t length = strlen(keys[i]);
 
@@ -204,35 +201,36 @@ int test_darts_traverse(const Dictionary &da,
 
 template <typename Dictionary, typename KeyPointerPointer>
 int test_darts_matching(const Dictionary &da,
-	size_t num_of_keys, KeyPointerPointer keys)
+	const set<string> &key_set, KeyPointerPointer keys)
 {
-	if (test_darts_exact_match_search(da, num_of_keys, keys) != 0)
+	if (test_darts_exact_match_search(da, key_set, keys) != 0)
 		return 1;
 
-	if (test_darts_common_prefix_search(da, num_of_keys, keys) != 0)
+	if (test_darts_common_prefix_search(da, key_set, keys) != 0)
 		return 1;
 
-	if (test_darts_traverse(da, num_of_keys, keys) != 0)
+	if (test_darts_traverse(da, key_set, keys) != 0)
 		return 1;
 
 	return 0;
 }
 
 template <typename Dictionary, typename KeyPointerPointer>
-int test_darts(Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
+int test_darts(Dictionary &da, const set<string> &key_set,
+	KeyPointerPointer keys)
 {
-	if (da.build(num_of_keys, keys) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0 ||
-		da.build(num_of_keys, keys, 0) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0 ||
-		da.build(num_of_keys, keys, 0, 0) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0 ||
-		da.build(num_of_keys, keys, 0, 0, ProgressBar()) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0 ||
-		da.build(num_of_keys, keys, 0, 0, progress_bar) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0 ||
-		da.build(num_of_keys, keys, 0, 0, 0) != 0 ||
-		test_darts_matching(da, num_of_keys, keys) != 0)
+	if (da.build(key_set.size(), keys) != 0
+		|| test_darts_matching(da, key_set, keys) != 0
+		|| da.build(key_set.size(), keys, 0) != 0
+		|| test_darts_matching(da, key_set, keys) != 0
+		|| da.build(key_set.size(), keys, 0, 0) != 0
+		|| test_darts_matching(da, key_set, keys) != 0
+		|| da.build(key_set.size(), keys, 0, 0, ProgressBar()) != 0
+		|| test_darts_matching(da, key_set, keys) != 0
+		|| da.build(key_set.size(), keys, 0, 0, progress_bar) != 0
+		|| test_darts_matching(da, key_set, keys) != 0
+		|| da.build(key_set.size(), keys, 0, 0, 0) != 0
+		|| test_darts_matching(da, key_set, keys) != 0)
 	{
 		return 1;
 	}
@@ -241,12 +239,12 @@ int test_darts(Dictionary &da, size_t num_of_keys, KeyPointerPointer keys)
 }
 
 template <typename Dictionary, typename KeyPointer>
-int test_darts(size_t num_of_keys, KeyPointer *keys)
+int test_darts(const set<string> &key_set, KeyPointer *keys)
 {
 	Dictionary da;
 
-	if (test_darts(da, num_of_keys, keys) != 0 ||
-		test_darts(da, num_of_keys, const_cast<const KeyPointer *>(keys)) != 0)
+	if (test_darts(da, key_set, keys) != 0
+		|| test_darts(da, key_set, const_cast<const KeyPointer *>(keys)) != 0)
 	{
 		return 1;
 	}
@@ -254,19 +252,21 @@ int test_darts(size_t num_of_keys, KeyPointer *keys)
 	return 0;
 }
 
-template <typename ValueType, int IdBits>
-int test_darts(const vector<const char *> &keys)
+template <typename DoubleArray>
+int test_darts(const set<string> &key_set, const vector<const char *> &keys)
 {
-	typedef Darts::DoubleArrayBase<ValueType, IdBits> dic_type;
+	typedef DoubleArray dic_type;
 
-	if (test_darts<dic_type>(keys.size(), const_cast<char **>(&keys[0])) != 0)
+	if (test_darts<dic_type>(key_set, const_cast<char **>(&keys[0])) != 0)
 		return 1;
 
-	if (test_darts<dic_type>(keys.size(), &keys[0]) != 0)
+	if (test_darts<dic_type>(key_set, &keys[0]) != 0)
 		return 1;
 
 	return 0;
 }
+
+}  // namespace
 
 int main(int argc, char **argv)
 {
@@ -285,16 +285,18 @@ int main(int argc, char **argv)
 	}
 
 	string key;
-	vector<string> keys;
+	set<string> key_set;
 	while (getline(key_file, key))
-		keys.push_back(key);
+		key_set.insert(key);
 
-	vector<const char *> key_ptrs(keys.size());
-	for (size_t i = 0; i < keys.size(); ++i)
-		key_ptrs[i] = keys[i].c_str();
+	vector<const char *> keys;
+	keys.reserve(key_set.size());
+	for (set<string>::iterator it = key_set.begin(); it != key_set.end(); ++it)
+		keys.push_back(it->c_str());
 
-	if (test_darts<int, 3>(key_ptrs) != 0 ||
-		test_darts<int, 0>(key_ptrs) != 0)
+	if (test_darts<Darts::DoubleArray>(key_set, keys) != 0
+		|| test_darts<Darts::HugeDoubleArray>(key_set, keys) != 0
+		|| test_darts<Darts::DoubleArrayBase<double, 3> >(key_set, keys) != 0)
 		return 1;
 
 	return 0;
