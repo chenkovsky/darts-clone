@@ -258,7 +258,7 @@ public:
 		LINK_BITS = 32 - 1 - VALUE_ID_BITS,
 	};
 
-	static const base_type OFFSET_MAX = static_cast<base_type>(1) << 22;
+	static const base_type OFFSET_MAX = static_cast<base_type>(1) << 21;
 	static const base_type VALUE_ID_MAX =
 		static_cast<base_type>(1) << VALUE_ID_BITS;
 	static const base_type LINK_MAX = static_cast<base_type>(1) << LINK_BITS;
@@ -272,14 +272,15 @@ public:
 
 	// Sets values.
 	void set_is_leaf() { values_ |= 1; }
-	void set_label(uchar_type label) { set<1, 8>(label); }
+	void set_is_end() { values_ |= 2; }
+	void set_label(uchar_type label) { set<2, 8>(label); }
 	void set_offset(base_type offset)
 	{
 		if (offset >= (OFFSET_MAX << 8))
 			THROW("Too large offset");
 
-		set<9, 23>((offset < OFFSET_MAX)
-			? offset : ((1 << 22) + (offset >> 8)));
+		set<10, 22>((offset < OFFSET_MAX)
+			? offset : ((1 << 21) + (offset >> 8)));
 	}
 	void set_value_id(base_type value_id) { set<1, VALUE_ID_BITS>(value_id); }
 	void set_link(base_type link)
@@ -292,10 +293,11 @@ public:
 
 	// Gets values.
 	bool is_leaf() const { return (values_ & 1) == 1; }
-	uchar_type label() const { return get<1, 8, uchar_type>(); }
+	bool is_end() const { return (values_ & 2) == 2; }
+	uchar_type label() const { return get<2, 8, uchar_type>(); }
 	base_type offset() const
 	{
-		base_type offset = get<9, 23, base_type>();
+		base_type offset = get<10, 22, base_type>();
 		return (offset < OFFSET_MAX) ? offset : ((offset - OFFSET_MAX) << 8);
 	}
 	base_type value_id() const { return get<1, VALUE_ID_BITS, base_type>(); }
@@ -491,6 +493,8 @@ private:
 
 			// Lists labels and next ranges.
 			labels.push_back((*range.begin())[0]);
+			if (labels[0] == 0)
+				units(range.index()).set_is_end();
 			typename range_type::iterator next_begin = range.begin();
 			for (typename range_type::iterator it = range.begin();
 				it != range.end(); ++it)
@@ -1126,14 +1130,17 @@ private:
 			for (base_type index = agent.index(); ; ++query)
 			{
 				// Extracts a prefix.
-				if (*query != 0)
+				if (*query != 0 && units_[index].is_end())
 				{
 					unit_type stray = units_[index ^ units_[index].offset()];
-					if (stray.is_leaf())
+					const uchar_type *tail = &tail_[stray.link()];
+					tail += sizeof(value_type) * stray.value_id() + 1;
+					if (num_of_results < max_num_of_results)
 					{
-						filter_result(results, num_of_results,
-							max_num_of_results, stray, query.index());
+						set_result(
+							results[num_of_results], tail, query.index());
 					}
+					++num_of_results;
 				}
 
 				index ^= units_[index].offset() ^ *query;
@@ -1155,9 +1162,13 @@ private:
 		while (*tail != 0 && *tail == *query)
 			++tail, ++query;
 
-		agent.set_link(static_cast<base_type>(tail - tail_));
-		filter_result(results, num_of_results, max_num_of_results,
-			agent, query.index());
+		if (*tail == 0)
+		{
+			tail += sizeof(value_type) * agent.value_id() + 1;
+			if (num_of_results < max_num_of_results)
+				set_result(results[num_of_results], tail, query.index());
+			++num_of_results;
+		}
 
 		return num_of_results;
 	}
@@ -1176,26 +1187,24 @@ private:
 				if (units_[index].is_leaf())
 					break;
 				else if (units_[index].label() != *query)
+				{
+					agent.set_index(index);
 					return static_cast<value_type>(-2);
-				agent.set_index(index);
+				}
 			}
 
 			// Checks a transition with a null character.
 			if (*query == 0)
 			{
-				index ^= units_[index].offset();
-				if (!units_[index].is_leaf())
+				agent.set_index(index);
+				if (!units_[index].is_end())
 					return static_cast<value_type>(-1);
 
-				unit_type stray = units_[index];
+				unit_type stray = units_[index ^ units_[index].offset()];
 				const uchar_type *tail = &tail_[stray.link()];
-				if (*tail != 0)
-					return static_cast<value_type>(-1);
 
-				value_type result;
 				tail += sizeof(value_type) * stray.value_id() + 1;
-				set_result(result, tail, query.index());
-				return result;
+				return get_value(tail);
 			}
 			agent = units_[index];
 		}
@@ -1207,11 +1216,8 @@ private:
 			if (*tail == 0)
 			{
 				agent.set_link(static_cast<base_type>(tail - tail_));
-
-				value_type result;
 				tail += sizeof(value_type) * agent.value_id() + 1;
-				set_result(result, tail, query.index());
-				return result;
+				return get_value(tail);
 			}
 		}
 
@@ -1221,19 +1227,12 @@ private:
 		return static_cast<value_type>(-2);
 	}
 
-	// Sets a result.
-	template <typename ResultType>
-	void filter_result(ResultType *results, size_type &num_of_results,
-		size_type max_num_of_results, unit_type agent, size_type length) const
+	// Gets a result.
+	value_type get_value(const uchar_type *tail) const
 	{
-		const uchar_type *tail = &tail_[agent.link()];
-		if (*tail == 0)
-		{
-			tail += sizeof(value_type) * agent.value_id() + 1;
-			if (num_of_results < max_num_of_results)
-				set_result(results[num_of_results], tail, length);
-			++num_of_results;
-		}
+		value_type value;
+		set_result_value(value, tail);
+		return value;
 	}
 
 	// Sets a result.
