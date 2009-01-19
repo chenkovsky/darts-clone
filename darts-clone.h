@@ -150,17 +150,19 @@ private:
 	value_type value_;
 
 public:
-	DoubleArrayKey() : key_(0), length_(0) {}
-	explicit DoubleArrayKey(const char_type *key) : key_(key), length_(0)
+	DoubleArrayKey() : key_(0), length_(0), index_(), value_() {}
+	explicit DoubleArrayKey(const char_type *key)
+		: key_(key), length_(0), index_(), value_()
 	{
 		while (key_[length_] != 0)
 			++length_;
 	}
 	DoubleArrayKey(const char_type *key, size_type length)
-		: key_(key), length_(static_cast<base_type>(length))
+		: key_(key), length_(), index_(), value_()
 	{
 		if (std::find(key_, key_ + length_, 0) != (key_ + length_))
-			THROW("Null character appears in a key");
+			THROW("Null character");
+		length_ = static_cast<base_type>(length);
 	}
 
 	// Compares 2 keys like std::strcmp().
@@ -605,10 +607,14 @@ private:
 		base_type dest_num_of_units = src_num_of_units + BLOCK_SIZE;
 		base_type dest_num_of_blocks = src_num_of_blocks + 1;
 
+		// Fixes an old block.
+		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
+			fix_block(src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS);
+
 		units_.resize(dest_num_of_units);
 		extras_.resize(dest_num_of_blocks, 0);
 
-		// Fixes old blocks or allocates memory.
+		// Allocates memory to a new block.
 		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
 		{
 			base_type block_id = src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS;
@@ -1132,7 +1138,8 @@ private:
 				// Extracts a prefix.
 				if (*query != 0 && units_[index].is_end())
 				{
-					unit_type stray = units_[index ^ units_[index].offset()];
+					const unit_type stray =
+						units_[index ^ units_[index].offset()];
 					const uchar_type *tail = &tail_[stray.link()];
 					tail += sizeof(value_type) * stray.value_id() + 1;
 					if (num_of_results < max_num_of_results)
@@ -1200,7 +1207,7 @@ private:
 				if (!units_[index].is_end())
 					return static_cast<value_type>(-1);
 
-				unit_type stray = units_[index ^ units_[index].offset()];
+				const unit_type stray = units_[index ^ units_[index].offset()];
 				const uchar_type *tail = &tail_[stray.link()];
 
 				tail += sizeof(value_type) * stray.value_id() + 1;
