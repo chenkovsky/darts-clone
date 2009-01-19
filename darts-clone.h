@@ -899,7 +899,7 @@ public:
 	// Always returns the number of units (no use).
 	size_type nonzero_size() const { return size(); }
 	// Returns the array size.
-    size_type total_size() const { return size_ * sizeof(unit_type); }
+	size_type total_size() const { return size_ * sizeof(unit_type); }
 
 	// Sets the start address of an array.
 	void set_array(const void *ptr, size_type size = 0)
@@ -1274,6 +1274,10 @@ private:
 typedef DoubleArrayBase<int, 3> DoubleArray;
 // Suffixes are stored in their original order.
 typedef DoubleArrayBase<int, 0> HugeDoubleArray;
+
+// For chasen.
+template <typename A, typename B, typename ResultType, typename D>
+class DoubleArrayImpl : public DoubleArrayBase<ResultType, 3> {};
 
 }  // namespace Darts
 
