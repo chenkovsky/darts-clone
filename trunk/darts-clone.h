@@ -3,7 +3,7 @@
 
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #define DARTS_VERSION "0.32"
@@ -150,19 +150,17 @@ private:
 	value_type value_;
 
 public:
-	DoubleArrayKey() : key_(0), length_(0), index_(), value_() {}
-	explicit DoubleArrayKey(const char_type *key)
-		: key_(key), length_(0), index_(), value_()
+	DoubleArrayKey() : key_(0), length_(0) {}
+	explicit DoubleArrayKey(const char_type *key) : key_(key), length_(0)
 	{
 		while (key_[length_] != 0)
 			++length_;
 	}
 	DoubleArrayKey(const char_type *key, size_type length)
-		: key_(key), length_(), index_(), value_()
+		: key_(key), length_(static_cast<base_type>(length))
 	{
 		if (std::find(key_, key_ + length_, 0) != (key_ + length_))
-			THROW("Null character");
-		length_ = static_cast<base_type>(length);
+			THROW("Null character appears in a key");
 	}
 
 	// Compares 2 keys like std::strcmp().
@@ -528,7 +526,7 @@ private:
 				units(child_index).set_label(labels[i]);
 
 				// Pushes a next range to a stack.
-				next_ranges[i].set_index(offset_index ^ labels[i]);
+				next_ranges[i].set_index(child_index);
 				range_stack.push(next_ranges[i]);
 			}
 			extras(offset_index).set_is_used();
@@ -545,36 +543,35 @@ private:
 		static const base_type LOWER_MASK = unit_type::OFFSET_MAX - 1;
 		static const base_type UPPER_MASK = ~LOWER_MASK;
 
-		uchar_type first_label = labels[0];
-		if (unfixed_index_ >= num_of_units())
-			return num_of_units() | (index & 0xFF);
-
 		// Scans empty units.
-		base_type unfixed_index = unfixed_index_;
-		do
+		if (unfixed_index_ < num_of_units())
 		{
-			base_type offset_index = unfixed_index ^ first_label;
-			base_type offset = index ^ offset_index;
-
-			if (!extras(offset_index).is_used()
-				&& (!(offset & LOWER_MASK) || !(offset & UPPER_MASK)))
+			base_type unfixed_index = unfixed_index_;
+			do
 			{
-				// Finds a collision.
-				bool has_collision = false;
-				for (size_type i = 1; i < labels.size(); ++i)
-				{
-					if (extras(offset_index ^ labels[i]).is_fixed())
-					{
-						has_collision = true;
-						break;
-					}
-				}
+				base_type offset_index = unfixed_index ^ labels[0];
+				base_type offset = index ^ offset_index;
 
-				if (!has_collision)
-					return offset_index;
-			}
-			unfixed_index = extras(unfixed_index).next();
-		} while (unfixed_index != unfixed_index_);
+				if (!extras(offset_index).is_used()
+					&& (!(offset & LOWER_MASK) || !(offset & UPPER_MASK)))
+				{
+					// Finds a collision.
+					bool has_collision = false;
+					for (size_type i = 1; i < labels.size(); ++i)
+					{
+						if (extras(offset_index ^ labels[i]).is_fixed())
+						{
+							has_collision = true;
+							break;
+						}
+					}
+
+					if (!has_collision)
+						return offset_index;
+				}
+				unfixed_index = extras(unfixed_index).next();
+			} while (unfixed_index != unfixed_index_);
+		}
 
 		return num_of_units() | (index & 0xFF);
 	}
@@ -607,14 +604,10 @@ private:
 		base_type dest_num_of_units = src_num_of_units + BLOCK_SIZE;
 		base_type dest_num_of_blocks = src_num_of_blocks + 1;
 
-		// Fixes an old block.
-		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
-			fix_block(src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS);
-
 		units_.resize(dest_num_of_units);
 		extras_.resize(dest_num_of_blocks, 0);
 
-		// Allocates memory to a new block.
+		// Fixes old blocks or allocates memory.
 		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
 		{
 			base_type block_id = src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS;
@@ -899,7 +892,7 @@ public:
 	// Always returns the number of units (no use).
 	size_type nonzero_size() const { return size(); }
 	// Returns the array size.
-	size_type total_size() const { return size_ * sizeof(unit_type); }
+    size_type total_size() const { return size_ * sizeof(unit_type); }
 
 	// Sets the start address of an array.
 	void set_array(const void *ptr, size_type size = 0)
@@ -1052,7 +1045,8 @@ private:
 			// Also, repeated keys are ignored.
 			if (key_count > 0)
 			{
-				int result = internal_keys[i - 1].compare(internal_keys[i]);
+				int result = internal_keys[key_count - 1].compare(
+					internal_keys[key_count]);
 				if (!result)
 					continue;
 				else if (result > 0)
@@ -1138,8 +1132,7 @@ private:
 				// Extracts a prefix.
 				if (*query != 0 && units_[index].is_end())
 				{
-					const unit_type stray =
-						units_[index ^ units_[index].offset()];
+					unit_type stray = units_[index ^ units_[index].offset()];
 					const uchar_type *tail = &tail_[stray.link()];
 					tail += sizeof(value_type) * stray.value_id() + 1;
 					if (num_of_results < max_num_of_results)
@@ -1194,20 +1187,17 @@ private:
 				if (units_[index].is_leaf())
 					break;
 				else if (units_[index].label() != *query)
-				{
-					agent.set_index(index);
 					return static_cast<value_type>(-2);
-				}
+				agent.set_index(index);
 			}
 
 			// Checks a transition with a null character.
 			if (*query == 0)
 			{
-				agent.set_index(index);
 				if (!units_[index].is_end())
 					return static_cast<value_type>(-1);
 
-				const unit_type stray = units_[index ^ units_[index].offset()];
+				unit_type stray = units_[index ^ units_[index].offset()];
 				const uchar_type *tail = &tail_[stray.link()];
 
 				tail += sizeof(value_type) * stray.value_id() + 1;
@@ -1274,10 +1264,6 @@ private:
 typedef DoubleArrayBase<int, 3> DoubleArray;
 // Suffixes are stored in their original order.
 typedef DoubleArrayBase<int, 0> HugeDoubleArray;
-
-// For chasen.
-template <typename A, typename B, typename ResultType, typename D>
-class DoubleArrayImpl : public DoubleArrayBase<ResultType, 3> {};
 
 }  // namespace Darts
 

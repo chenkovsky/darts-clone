@@ -1,6 +1,6 @@
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #include "darts-clone.h"
