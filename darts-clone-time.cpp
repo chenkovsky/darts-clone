@@ -1,3 +1,8 @@
+// A clone of the Darts (Double-ARray Trie System)
+//
+// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
+// All rights reserved.
+
 #include "darts-clone.h"
 
 #include <ctime>
@@ -137,8 +142,30 @@ private:
 	static uint32 to_lower(uint32 value) { return value & 0x7FFFFFFFUL; }
 };
 
-// Loads a file.
-bool load_file(const char *file_name, vector<string> &lines)
+struct KeyLessThan
+{
+	bool operator()(const char *lhs, const char *rhs)
+	{
+		while (*lhs != '\0' && *lhs == *rhs)
+			++lhs, ++rhs;
+		return static_cast<unsigned char>(*lhs)
+			< static_cast<unsigned char>(*rhs);
+	}
+};
+
+struct KeyEqualTo
+{
+	bool operator()(const char *lhs, const char *rhs)
+	{
+		while (*lhs != '\0' && *lhs == *rhs)
+			++lhs, ++rhs;
+		return *lhs == *rhs;
+	}
+};
+
+// Loads a file and divide it to a list of lines.
+bool load_lines(const char *file_name,
+	vector<char> &lines_buf, vector<const char *> &lines)
 {
 	ifstream file(file_name);
 	if (!file.is_open())
@@ -147,22 +174,41 @@ bool load_file(const char *file_name, vector<string> &lines)
 		return false;
 	}
 
-	cerr << "loading file...: " << file_name << endl;
-	string line;
-	while (getline(file, line))
+	file.seekg(0, ios::end);
+	ifstream::pos_type file_size = file.tellg();
+	if (file_size <= 0)
+		return false;
+	file.seekg(0, ios::beg);
+
+	lines_buf.resize(static_cast<vector<char>::size_type>(file_size) + 1);
+	file.read(&lines_buf[0], lines_buf.size() - 1);
+	if (file.eof() || file.fail())
+		return false;
+	lines_buf.back() = '\0';
+
+	bool is_valid_line = false;
+	for (size_t i = 0; i < lines_buf.size() - 1; ++i)
 	{
-		if (!line.empty())
-			lines.push_back(line);
+		if (lines_buf[i] == '\r' || lines_buf[i] == '\n')
+		{
+			lines_buf[i] = '\0';
+			is_valid_line = false;
+		}
+		else if (!is_valid_line)
+		{
+			lines.push_back(&lines_buf[i]);
+			is_valid_line = true;
+		}
 	}
-	cerr << "done: number of lines: " << lines.size() << endl;
 
 	return true;
 }
 
 // Loads a keyset file.
-bool load_keyset(const char *key_file_name, vector<string> &keys)
+bool load_keyset(const char *key_file_name,
+	vector<char> &keys_buf, vector<const char *> &keys)
 {
-	if (!load_file(key_file_name, keys))
+	if (!load_lines(key_file_name, keys_buf, keys))
 		return false;
 
 	if (keys.empty())
@@ -172,21 +218,22 @@ bool load_keyset(const char *key_file_name, vector<string> &keys)
 	}
 
 	cerr << "sorting keyset..." << endl;
-	sort(keys.begin(), keys.end());
+	sort(keys.begin(), keys.end(), KeyLessThan());
 
-	keys.erase(unique(keys.begin(), keys.end()), keys.end());
+	keys.erase(unique(keys.begin(), keys.end(), KeyEqualTo()), keys.end());
 	cerr << "number of unique keywords: " << keys.size() << endl;
 
 	return true;
 }
 
 // Loads a text file.
-bool load_text(const char *text_file_name, vector<string> &lines)
+bool load_text(const char *text_file_name,
+	vector<char> &lines_buf, vector<const char *> &lines)
 {
 	if (!text_file_name)
 		return true;
 
-	if (!load_file(text_file_name, lines))
+	if (!load_lines(text_file_name, lines_buf, lines))
 		return false;
 
 	return true;
@@ -198,7 +245,7 @@ const double MIN_TEST_SEC = 5.0;
 
 // Tests build().
 template <typename DoubleArray>
-bool test_build(DoubleArray &da, vector<const char *> &keys)
+bool test_build(DoubleArray &da, const vector<const char *> &keys)
 {
 	time_recorder timer;
 	for (int i = 0; i < MIN_TEST_TIMES || timer.total() < MIN_TEST_SEC; ++i)
@@ -227,7 +274,7 @@ bool test_build(DoubleArray &da, vector<const char *> &keys)
 
 // Tests exactMatchSearch().
 template <typename DoubleArray>
-bool test_exact_match(const DoubleArray &da, vector<const char *> &keys)
+bool test_exact_match(const DoubleArray &da, const vector<const char *> &keys)
 {
 	time_recorder timer;
 	for (int i = 0; i < MIN_TEST_TIMES || timer.total() < MIN_TEST_SEC; ++i)
@@ -255,7 +302,7 @@ bool test_exact_match(const DoubleArray &da, vector<const char *> &keys)
 
 // Tests commonPrefixSearch().
 template <typename DoubleArray>
-bool test_prefix_match(const DoubleArray &da, const vector<string> &lines)
+bool test_prefix_match(const DoubleArray &da, const vector<const char *> &lines)
 {
 	time_recorder timer;
 	size_t total_matches = 0;
@@ -270,11 +317,12 @@ bool test_prefix_match(const DoubleArray &da, const vector<string> &lines)
 		total_matches = 0;
 		for (size_t j = 0; j < lines.size(); ++j)
 		{
-			const string &line = lines[j];
-			for (size_t k = 0; k < line.length(); ++k)
+			const char *line = lines[j];
+			for (size_t k = 0; line[k] != 0; ++k)
 			{
-				total_matches += da.commonPrefixSearch(
+				size_t num_of_matches = da.commonPrefixSearch(
 					&line[k], results, RESULT_MAX);
+				total_matches += num_of_matches;
 			}
 		}
 	}
@@ -288,7 +336,7 @@ bool test_prefix_match(const DoubleArray &da, const vector<string> &lines)
 
 // Tests traverse().
 template <typename DoubleArray>
-bool test_traverse(const DoubleArray &da, const vector<string> &lines)
+bool test_traverse(const DoubleArray &da, const vector<const char *> &lines)
 {
 	time_recorder timer;
 	size_t total_matches = 0;
@@ -300,8 +348,8 @@ bool test_traverse(const DoubleArray &da, const vector<string> &lines)
 		total_matches = 0;
 		for (size_t j = 0; j < lines.size(); ++j)
 		{
-			const string &line = lines[j];
-			for (size_t k = 0; k < line.length(); ++k)
+			const char *line = lines[j];
+			for (size_t k = 0; line[k] != 0; ++k)
 			{
 				size_t da_index = 0, key_index = k;
 				typename DoubleArray::value_type result;
@@ -325,28 +373,24 @@ bool test_traverse(const DoubleArray &da, const vector<string> &lines)
 
 // Tests a specified double-array.
 template <typename DoubleArray>
-bool test(const vector<string> &keys, const vector<string> &lines)
+bool test(vector<const char *> &keys, const vector<const char *> &lines)
 {
-	vector<const char *> ptrs(keys.size());
-	for (size_t i = 0; i < keys.size(); ++i)
-		ptrs[i] = keys[i].c_str();
-
 	cerr << "building double-arrays..." << endl;
 	DoubleArray da;
-	if (!test_build(da, ptrs))
+	if (!test_build(da, keys))
 		return false;
 	cout << "Size: " << da.total_size() << endl;
 
 	cerr << "matching sorted keyset..." << endl;
-	if (!test_exact_match(da, ptrs))
+	if (!test_exact_match(da, keys))
 		return false;
 
 	cerr << "randomizing keyset..." << endl;
 	mt_rand rng;
-	random_shuffle(ptrs.begin(), ptrs.end(), rng);
+	random_shuffle(keys.begin(), keys.end(), rng);
 
 	cerr << "matching randomized keyset..." << endl;
-	if (!test_exact_match(da, ptrs))
+	if (!test_exact_match(da, keys))
 		return false;
 
 	if (!lines.empty())
@@ -364,11 +408,12 @@ bool test(const vector<string> &keys, const vector<string> &lines)
 }
 
 // Tests a double-array.
-bool time_main(const vector<string> &keys, const vector<string> &lines)
+bool time_main(vector<const char *> &keys, const vector<const char *> &lines)
 {
 	if (!test<Darts::DoubleArray>(keys, lines))
 		return false;
 
+	sort(keys.begin(), keys.end(), KeyLessThan());
 	if (!test<Darts::HugeDoubleArray>(keys, lines))
 		return false;
 
@@ -388,12 +433,14 @@ int main(int argc, char *argv[])
 	const char *key_file_name = argv[1];
 	const char *text_file_name = (argc == 3) ? argv[2] : 0;
 
-	vector<string> keys;
-	if (!load_keyset(key_file_name, keys))
+	vector<char> keys_buf;
+	vector<const char *> keys;
+	if (!load_keyset(key_file_name, keys_buf, keys))
 		return 1;
 
-	vector<string> lines;
-	if (!load_text(text_file_name, lines))
+	vector<char> lines_buf;
+	vector<const char *> lines;
+	if (!load_text(text_file_name, lines_buf, lines))
 		return 1;
 
 	if (!time_main(keys, lines))
