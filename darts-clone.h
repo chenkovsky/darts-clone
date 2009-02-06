@@ -1265,6 +1265,10 @@ typedef DoubleArrayBase<int, 3> DoubleArray;
 // Suffixes are stored in their original order.
 typedef DoubleArrayBase<int, 0> HugeDoubleArray;
 
+// For chasen.
+template <typename A, typename B, typename ResultType, typename D>
+class DoubleArrayImpl : public DoubleArrayBase<ResultType, 3> {};
+
 }  // namespace Darts
 
 // Undefines internal macros.
