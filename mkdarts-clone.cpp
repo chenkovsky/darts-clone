@@ -1,6 +1,6 @@
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #include "darts-clone.h"
@@ -130,14 +130,5 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	try
-	{
-		return mkdarts(key_file, index_file_path, option);
-	}
-	catch (const std::exception &ex)
-	{
-		cerr << "Error: " << ex.what() << endl;
-	}
-
-	return 1;
+	return mkdarts(key_file, index_file_path, option);
 }
