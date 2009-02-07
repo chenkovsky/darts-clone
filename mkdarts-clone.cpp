@@ -1,6 +1,6 @@
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #include "darts-clone.h"
@@ -53,29 +53,20 @@ const size_t ProgressBar::Size = sizeof(ProgressBar::Bar) - 1;
 
 }  // namespace
 
-void input_keys(istream &key_input_stream,
-	vector<char> &keys_buf, vector<const char *> &keys)
-{
-	string key_string;
-	vector<size_t> indices;
-	while (getline(key_input_stream, key_string))
-	{
-		indices.push_back(keys_buf.size());
-		keys_buf.insert(keys_buf.end(), key_string.begin(), key_string.end());
-		keys_buf.push_back('\0');
-	}
-	vector<char>(keys_buf).swap(keys_buf);
-	keys.resize(indices.size());
-	for (size_t i = 0; i < indices.size(); ++i)
-		keys[i] = &keys_buf[indices[i]];
-}
-
 template <typename Dictionary>
 int mkdarts(istream &key_input_stream, const string &index_file_path)
 {
-	vector<char> keys_buf;
+	string key_string;
+	vector<string> key_strings;
+	while (getline(key_input_stream, key_string))
+		key_strings.push_back(key_string);
+
 	vector<const char *> keys;
-	input_keys(key_input_stream, keys_buf, keys);
+	for (vector<string>::const_iterator it = key_strings.begin();
+		it != key_strings.end(); ++it)
+	{
+		keys.push_back(it->c_str());
+	}
 
 	Dictionary da;
 	if (da.build(keys.size(), &keys[0], 0, 0, ProgressBar()) != 0)
@@ -130,14 +121,5 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	try
-	{
-		return mkdarts(key_file, index_file_path, option);
-	}
-	catch (const std::exception &ex)
-	{
-		cerr << "Error: " << ex.what() << endl;
-	}
-
-	return 1;
+	return mkdarts(key_file, index_file_path, option);
 }

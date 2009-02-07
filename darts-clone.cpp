@@ -1,6 +1,6 @@
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #include "darts-clone.h"
@@ -30,7 +30,7 @@ int darts(const string &index_file_path)
 			line.c_str(), &result_pairs[0], result_pairs.size());
 		if (num_of_results)
 		{
-			cout << line << ": found, num = " << num_of_results;
+			cout << line << ": found, num = " << num_of_results << ' ';
 			for (size_t i = 0; i < num_of_results; ++i)
 			{
 				cout << ' ' << result_pairs[i].value
