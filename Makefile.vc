@@ -1,42 +1,16 @@
 CC = cl
-CFLAGS = -EHsc -W4 -Ox
+CFLAGS = -W4 -Ox -EHsc
 
-MKDARTS_SRCS = mkdarts-clone.cpp
-MKDARTS_OBJS = $(MKDARTS_SRCS:.cpp=.obj)
-MKDARTS = mkdarts-clone
+ALL: mkdarts-clone darts-clone darts-clone-test
 
-DARTS_SRCS = darts-clone.cpp
-DARTS_OBJS = $(DARTS_SRCS:.cpp=.obj)
-DARTS = darts-clone
+mkdarts-clone: mkdarts-clone.obj
+	${CC} ${CFLAGS} mkdarts-clone.cpp
 
-TEST_SRCS = darts-clone-test.cpp
-TEST_OBJS = $(TEST_SRCS:.cpp=.obj)
-TEST = darts-clone-test
+darts-clone: darts-clone.obj
+	${CC} ${CFLAGS} darts-clone.cpp
 
-TIME_SRCS = darts-clone-time.cpp
-TIME_OBJS = $(TIME_SRCS:.cpp=.obj)
-TIME = darts-clone-time
-
-
-.cpp.obj:
-	$(CC) -c $(CFLAGS) $<
-
-ALL: $(MKDARTS) $(DARTS) $(TEST) $(TIME)
-
-$(MKDARTS): $(MKDARTS_OBJS)
-	$(CC) -Fe$@ $(CFLAGS) $(MKDARTS_OBJS)
-
-$(DARTS): $(DARTS_OBJS)
-	$(CC) -Fe$@ $(CFLAGS) $(DARTS_OBJS)
-
-$(TEST): $(TEST_OBJS)
-	$(CC) -Fe$@ $(CFLAGS) $(TEST_OBJS)
-
-$(TIME): $(TIME_OBJS)
-	$(CC) -Fe$@ $(CFLAGS) $(TIME_OBJS)
-
-check:
-	(cd tests; sh test-darts-clone.sh)
+darts-clone-test: darts-clone-test.obj
+	${CC} ${CFLAGS} darts-clone-test.cpp
 
 clean:
 	rm -f *.obj
@@ -44,4 +18,3 @@ clean:
 darts-clone.obj: darts-clone.h darts-clone.cpp
 mkdarts-clone.obj: darts-clone.h mkdarts-clone.cpp
 darts-clone-test.obj: darts-clone.h darts-clone-test.cpp
-darts-clone-time.obj: darts-clone.h darts-clone-time.cpp

@@ -40,12 +40,12 @@ then
 	if cmp HugeIndexFile CorrectHugeIndexFile
 	then
 		echo "Done! mkdarts-clone -h"
-		if ../darts-clone -h HugeIndexFile < TextFile > HugeResultFile
+		if ../darts-clone -h HugeIndexFile < TextFile > ResultFile
 		then
-			if diff --strip-trailing-cr HugeResultFile CorrectResultFile
+			if diff --strip-trailing-cr ResultFile CorrectResultFile
 			then
 				echo "Done! darts-clone -h"
-				rm -f HugeIndexFile HugeResultFile
+				rm -f HugeIndexFile ResultFile
 			else
 				echo "Error: invalid matching results"
 			fi
