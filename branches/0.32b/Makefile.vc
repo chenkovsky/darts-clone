@@ -1,0 +1,20 @@
+CC = cl
+CFLAGS = -W4 -Ox -EHsc
+
+ALL: mkdarts-clone darts-clone darts-clone-test
+
+mkdarts-clone: mkdarts-clone.obj
+	${CC} ${CFLAGS} mkdarts-clone.cpp
+
+darts-clone: darts-clone.obj
+	${CC} ${CFLAGS} darts-clone.cpp
+
+darts-clone-test: darts-clone-test.obj
+	${CC} ${CFLAGS} darts-clone-test.cpp
+
+clean:
+	rm -f *.obj
+
+darts-clone.obj: darts-clone.h darts-clone.cpp
+mkdarts-clone.obj: darts-clone.h mkdarts-clone.cpp
+darts-clone-test.obj: darts-clone.h darts-clone-test.cpp

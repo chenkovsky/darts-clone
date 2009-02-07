@@ -1,0 +1,19 @@
+A clone of the Darts (Double-ARray Trie System)
+
+This project provides a clone of the Darts (Double-ARray Trie System)
+developed by Taku Kudo. The clone library has an advantage in memory.
+
+The Darts is a C++ header library for the double-array that was presented
+by Jun-ichi Aoe as an efficient implementation of a trie. In practice,
+the Darts is used in several applications such as ChaSen and MeCab
+(Japanese morphological analyzers) because the double-array provides fast
+prefix matching for multiple patterns with a compact dictionary.
+
+However, the Darts is based on a traditional implementation, and in fact,
+we can improve the performance of the Darts by using a new implementation.
+Therefore, this project provides a Darts-like library that is based on
+a new implementation of the double-array.
+
+--
+Susumu Yata <syata@acm.org>
+Supported by Research Fellowships of the JSPS for Young Scientists.
