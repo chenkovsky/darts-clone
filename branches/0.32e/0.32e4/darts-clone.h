@@ -1,6 +1,6 @@
 #ifndef DARTS_H_
 #define DARTS_H_
-#include <iostream>
+
 // A clone of the Darts (Double-ARray Trie System)
 //
 // Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
