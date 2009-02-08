@@ -247,6 +247,8 @@ const double MIN_TEST_SEC = 5.0;
 template <typename DoubleArray>
 bool test_build(DoubleArray &da, const vector<const char *> &keys)
 {
+//	vector<int> values(keys.size(), 0);
+
 	time_recorder timer;
 	for (int i = 0; i < MIN_TEST_TIMES || timer.total() < MIN_TEST_SEC; ++i)
 	{
@@ -256,6 +258,7 @@ bool test_build(DoubleArray &da, const vector<const char *> &keys)
 		da.clear();
 		try
 		{
+//			if (da.build(keys.size(), &keys[0], 0, &values[0]) != 0)
 			if (da.build(keys.size(), &keys[0]) != 0)
 				return false;
 		}
@@ -321,7 +324,7 @@ bool test_prefix_match(const DoubleArray &da, const vector<const char *> &lines)
 			for (size_t k = 0; line[k] != 0; ++k)
 			{
 				size_t num_of_matches = da.commonPrefixSearch(
-					&line[k], results, RESULT_MAX);
+					&line[k], results, RESULT_MAX, lines.size() - k);
 				total_matches += num_of_matches;
 			}
 		}

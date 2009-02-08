@@ -1,6 +1,6 @@
 #ifndef DARTS_H_
 #define DARTS_H_
-
+#include <iostream>
 // A clone of the Darts (Double-ARray Trie System)
 //
 // Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
@@ -604,6 +604,10 @@ private:
 		base_type dest_num_of_units = src_num_of_units + BLOCK_SIZE;
 		base_type dest_num_of_blocks = src_num_of_blocks + 1;
 
+		// Fixes an old block.
+		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
+			fix_block(src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS);
+
 		units_.resize(dest_num_of_units);
 		extras_.resize(dest_num_of_blocks, 0);
 
@@ -611,8 +615,6 @@ private:
 		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
 		{
 			base_type block_id = src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS;
-			fix_block(block_id);
-
 			std::swap(extras_[block_id], extras_.back());
 			for (base_type i = src_num_of_units; i < dest_num_of_units; ++i)
 				extras(i).clear();
