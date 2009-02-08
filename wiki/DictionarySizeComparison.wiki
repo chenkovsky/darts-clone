@@ -2,7 +2,8 @@
 
 = 概要 =
 
-Darts clone の利点を示すために，Darts と Darts clone を用いて構築される辞書のサイズを示します．
+Darts clone の利点を示すために，
+Darts と Darts clone を用いて構築される辞書のサイズを示します．
 今回調査した辞書の内容は以下のようになっています．
 
  * MeCab
@@ -19,15 +20,18 @@ Darts clone の利点を示すために，Darts と Darts clone を用いて構�
 
 == MeCab ==
 
-MeCab を Ubuntu 8.04 上でコンパイルしたときに生成される辞書（sys.dic）のサイズを調査しました．
-実験に使用したのは，mecab-0.97.tar.gz と mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
+MeCab を Ubuntu 8.04 上でコンパイルしたときに生成される辞書
+（sys.dic）のサイズを調査しました．
+実験に使用したのは，mecab-0.97.tar.gz と
+mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
 これらのアーカイブは以下のサイトから入手できます．
 
  * MeCab: Yet Another Part-of-Speech and Morphological Analyzer
   * http://mecab.sourceforge.net/
 
 辞書構築までの手順は以下の通りです．
-Darts clone を使用するときは，mecab-0.97.tar.gz に含まれる darts.h を darts-clone.h により置き換えました．
+Darts clone を使用するときは，mecab-0.97.tar.gz に含まれる
+darts.h を darts-clone.h により置き換えました．
 
  # tar zxvf mecab-0.97.tar.gz
  # cd mecab-0.97
@@ -42,7 +46,8 @@ Darts clone を使用するときは，mecab-0.97.tar.gz に含まれる darts.h
  # /usr/local/libexec/mecab/mecab-dict-index -d . -o . -f EUC-JP -t 文字コード
 
 辞書サイズは以下のようになりました．
-品詞や読みに割り当てられている領域の方がずっと大きいようで，全体から見ると大して効果はありません．
+品詞や読みに割り当てられている領域の方がずっと大きいようで，
+全体から見ると大して効果はありません．
 sys.dic のサイズが 15% ほど削減されるにとどまりました．
 
 || *文字コード* || *Darts* || *Darts clone 0.32e* ||
@@ -58,12 +63,15 @@ sys.dic のサイズが 15% ほど削減されるにとどまりました．
 ||euc||15,273,657||9,745,349||
 ||utf8||17,700,673||10,101,553||
 
-※ 分かち書き用の辞書は mecab-dict-index に -w オプションを与えることで構築できます．
+※ 分かち書き用の辞書は mecab-dict-index に
+-w オプションを与えることで構築できます．
 
 == ChaSen ==
 
-chasen-2.4.4 を Ubuntu 8.04 にインストールし，ipadic-2.7.0 から構築される辞書（chadic.da）のサイズを調査しました．
-chadic.da 以外のファイルは合計 20MB 程度なため，全体の 1/4 弱が削減されたことになります．
+chasen-2.4.4 を Ubuntu 8.04 にインストールし，
+ipadic-2.7.0 から構築される辞書（chadic.da）のサイズを調査しました．
+chadic.da 以外のファイルは合計 20MB 程度なため，
+全体の 1/4 弱が削減されたことになります．
 
 || *文字コード* || *Darts* || *Darts clone 0.32e* ||
 ||utf8||11,432,440||3,829,056||
@@ -76,7 +84,8 @@ chadic.da 以外のファイルは合計 20MB 程度なため，全体の 1/4 �
  * 「ChaSen」をUTF-8対応で導入
   * http://www.crimson-snow.net/hmsvr/centos/memo/chasen_utf8.html
 
-chasen-2.4.4 と ipadic-2.7.0 の組み合わせをインストールしたときの手順を以下に示します．
+chasen-2.4.4 と ipadic-2.7.0 の組み合わせを
+インストールしたときの手順を以下に示します．
 
  # tar zxvf chasen-2.4.4.tar.gz
  # cd chasen-2.4.4
@@ -115,21 +124,27 @@ exit
 
 === Google N-gram ===
 
-Google N-gram コーパスの unigram を使用して，大規模なキー集合に対する性能を調査しました．
-Darts の辞書構築には mkdarts，Darts clone の辞書構築には mkdarts-clone を使用しています．
+Google N-gram コーパスの unigram を使用して，
+大規模なキー集合に対する性能を調査しました．
+Darts の辞書構築には mkdarts，Darts clone の辞書構築には
+mkdarts-clone を使用しています．
 
 || *言語* || *キー数* || *ソース* || *Darts* || *Darts clone 0.32e* ||
 ||日本語||2,565,427||50,784,220||162,689,912||37,383,472||
 ||英語||13,588,391||125,937,836||406,358,432||146,037,360||
 
-日本語 unigram については，Darts clone のサイズは Darts の 1/4 以下になっています．
-一方，英語 unigram については，Darts clone のサイズは 1/3 強になっています．
+日本語 unigram については，
+Darts clone のサイズは Darts の 1/4 以下になっています．
+一方，英語 unigram については，
+Darts clone のサイズは 1/3 強になっています．
 
-※ 日本語 unigram 使用時の差が大きい理由としては，長いカタカナが大量に含まれていることが挙げられます．
+※ 日本語 unigram 使用時の差が大きい理由としては，
+長いカタカナが大量に含まれていることが挙げられます．
 
 === 日英単語 ===
 
-ipadic-2.6.3 の見出し語と WordNet-3.0 の英単語から Darts と Darts clone の辞書を構築し，サイズを調査しました．
+ipadic-2.6.3 の見出し語と WordNet-3.0 の英単語から
+Darts と Darts clone の辞書を構築し，サイズを調査しました．
 
 || *辞書ソース* || *Darts* || *Darts clone 0.32e* ||
 ||ipadic-2.6.3||9,198,968||2,641,648||
