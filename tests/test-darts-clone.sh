@@ -33,28 +33,3 @@ then
 else
 	echo "Error: mkdarts-clone failed"
 fi
-
-
-if ../mkdarts-clone -h KeyFile HugeIndexFile
-then
-	if cmp HugeIndexFile CorrectHugeIndexFile
-	then
-		echo "Done! mkdarts-clone -h"
-		if ../darts-clone -h HugeIndexFile < TextFile > HugeResultFile
-		then
-			if diff --strip-trailing-cr HugeResultFile CorrectResultFile
-			then
-				echo "Done! darts-clone -h"
-				rm -f HugeIndexFile HugeResultFile
-			else
-				echo "Error: invalid matching results"
-			fi
-		else
-			echo "Error: darts-clone -h failed"
-		fi
-	else
-		echo "Error: invalid index file"
-	fi
-else
-	echo "Error: mkdarts-clone -h failed"
-fi

@@ -11,17 +11,16 @@
 
 using namespace std;
 
-template <typename Dictionary>
 int darts(const string &index_file_path)
 {
-	Dictionary da;
+	Darts::DoubleArray da;
 	if (da.open(index_file_path.c_str()))
 	{
 		cerr << "Error: cannot open: " << index_file_path << endl;
 		return 1;
 	}
 
-	vector<typename Dictionary::result_pair_type> result_pairs(1024);
+	vector<Darts::DoubleArray::result_pair_type> result_pairs(1024);
 
 	string line;
 	while (getline(cin, line))
@@ -45,24 +44,15 @@ int darts(const string &index_file_path)
 	return 0;
 }
 
-int darts(const string &index_file_path, const string &option)
-{
-	if (option == "-h")
-		return darts<Darts::HugeDoubleArray>(index_file_path);
-
-	return darts<Darts::DoubleArray>(index_file_path);
-}
-
 int main(int argc, char **argv)
 {
-	if (argc < 2 || argc > 3)
+	if (argc != 2)
 	{
-		cerr << "Usage: " << argv[0] << " [-h] IndexFile" << endl;
+		cerr << "Usage: " << argv[0] << " IndexFile" << endl;
 		return 1;
 	}
 
-	const string option(argc > 2 ? argv[1] : "");
-	const string index_file_path = argv[argc - 1];
+	const string index_file_path = argv[1];
 
-	return darts(index_file_path, option);
+	return darts(index_file_path);
 }

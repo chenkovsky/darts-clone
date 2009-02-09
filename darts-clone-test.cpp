@@ -20,41 +20,6 @@ using namespace std;
 namespace
 {
 
-class ProgressBar
-{
-public:
-	ProgressBar() : prev_progress_(0) {}
-
-	void operator()(size_t current, size_t total)
-	{
-		size_t progress   = static_cast<int>(100.0 * current / total);
-		size_t bar_length = static_cast<int>(1.0 * current * Size / total);
-
-		if (prev_progress_ != progress)
-		{
-			cerr << "Making double-array: " << setw(3) << progress << '%'
-				<< " |";
-			cerr.write(Bar, bar_length);
-			cerr.write(Space, Size - bar_length);
-			cerr << '|' << (progress == 100 ? '\n' : '\r');
-			prev_progress_ = progress;
-		}
-	}
-
-private:
-	size_t prev_progress_;
-
-	static const char Bar[];
-	static const char Space[];
-	static const size_t Size;
-};
-
-const char ProgressBar::Bar[] =
-	"*******************************************";
-const char ProgressBar::Space[] =
-	"                                           ";
-const size_t ProgressBar::Size = sizeof(ProgressBar::Bar) - 1;
-
 int progress_bar(size_t current, size_t total)
 {
 	static const char bar[] = "*******************************************";
@@ -81,26 +46,27 @@ int progress_bar(size_t current, size_t total)
 	return 1;
 };
 
-template <typename Dictionary, typename KeyPointerPointer>
-int test_darts_exact_match_search(const Dictionary &da,
+template <typename KeyPointerPointer>
+int test_darts_exact_match_search(const Darts::DoubleArray &da,
 	const set<string> &key_set, KeyPointerPointer keys)
 {
-	typedef typename Dictionary::value_type value_type;
-	typedef typename Dictionary::result_pair_type result_pair_type;
+	typedef Darts::DoubleArray::value_type value_type;
+	typedef Darts::DoubleArray::result_pair_type result_pair_type;
 
 	for (size_t i = 0; i < key_set.size(); ++i)
 	{
 		value_type result;
-		if (!da.exactMatchSearch(keys[i], result)
-			|| static_cast<size_t>(result) != i)
+		da.exactMatchSearch(keys[i], result);
+		if (static_cast<size_t>(result) != i)
 		{
 			ERR << "exactMatchSearch() failed: " << result << endl;
 			return 1;
 		}
 
 		result_pair_type result_pair;
-		if (!da.exactMatchSearch(keys[i], result_pair)
-			|| static_cast<size_t>(result_pair.value) != i
+		result_pair.length = 0;
+		da.exactMatchSearch(keys[i], result_pair);
+		if (static_cast<size_t>(result_pair.value) != i
 			|| result_pair.length != strlen(keys[i]))
 		{
 			ERR << "exactMatchSearch() failed: "
@@ -112,12 +78,12 @@ int test_darts_exact_match_search(const Dictionary &da,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointerPointer>
-int test_darts_common_prefix_search(const Dictionary &da,
+template <typename KeyPointerPointer>
+int test_darts_common_prefix_search(const Darts::DoubleArray &da,
 	const set<string> &key_set, KeyPointerPointer keys)
 {
-	typedef typename Dictionary::value_type value_type;
-	typedef typename Dictionary::result_pair_type result_pair_type;
+	typedef Darts::DoubleArray::value_type value_type;
+	typedef Darts::DoubleArray::result_pair_type result_pair_type;
 
 	enum { MAX_NUM_OF_RESULTS = 256 };
 
@@ -166,11 +132,11 @@ int test_darts_common_prefix_search(const Dictionary &da,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointerPointer>
-int test_darts_traverse(const Dictionary &da,
+template <typename KeyPointerPointer>
+int test_darts_traverse(const Darts::DoubleArray &da,
 	const set<string> &key_set, KeyPointerPointer keys)
 {
-	typedef typename Dictionary::value_type value_type;
+	typedef Darts::DoubleArray::value_type value_type;
 
 	for (size_t i = 0; i < key_set.size(); ++i)
 	{
@@ -199,8 +165,8 @@ int test_darts_traverse(const Dictionary &da,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointerPointer>
-int test_darts_matching(const Dictionary &da,
+template <typename KeyPointerPointer>
+int test_darts_matching(const Darts::DoubleArray &da,
 	const set<string> &key_set, KeyPointerPointer keys)
 {
 	if (test_darts_exact_match_search(da, key_set, keys) != 0)
@@ -215,8 +181,8 @@ int test_darts_matching(const Dictionary &da,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointerPointer>
-int test_darts(Dictionary &da, const set<string> &key_set,
+template <typename KeyPointerPointer>
+int test_darts(Darts::DoubleArray &da, const set<string> &key_set,
 	KeyPointerPointer keys)
 {
 	if (da.build(key_set.size(), keys) != 0
@@ -224,8 +190,6 @@ int test_darts(Dictionary &da, const set<string> &key_set,
 		|| da.build(key_set.size(), keys, 0) != 0
 		|| test_darts_matching(da, key_set, keys) != 0
 		|| da.build(key_set.size(), keys, 0, 0) != 0
-		|| test_darts_matching(da, key_set, keys) != 0
-		|| da.build(key_set.size(), keys, 0, 0, ProgressBar()) != 0
 		|| test_darts_matching(da, key_set, keys) != 0
 		|| da.build(key_set.size(), keys, 0, 0, progress_bar) != 0
 		|| test_darts_matching(da, key_set, keys) != 0
@@ -238,10 +202,10 @@ int test_darts(Dictionary &da, const set<string> &key_set,
 	return 0;
 }
 
-template <typename Dictionary, typename KeyPointer>
+template <typename KeyPointer>
 int test_darts(const set<string> &key_set, KeyPointer *keys)
 {
-	Dictionary da;
+	Darts::DoubleArray da;
 
 	if (test_darts(da, key_set, keys) != 0
 		|| test_darts(da, key_set, const_cast<const KeyPointer *>(keys)) != 0)
@@ -252,15 +216,12 @@ int test_darts(const set<string> &key_set, KeyPointer *keys)
 	return 0;
 }
 
-template <typename DoubleArray>
 int test_darts(const set<string> &key_set, const vector<const char *> &keys)
 {
-	typedef DoubleArray dic_type;
-
-	if (test_darts<dic_type>(key_set, const_cast<char **>(&keys[0])) != 0)
+	if (test_darts(key_set, const_cast<char **>(&keys[0])) != 0)
 		return 1;
 
-	if (test_darts<dic_type>(key_set, &keys[0]) != 0)
+	if (test_darts(key_set, &keys[0]) != 0)
 		return 1;
 
 	return 0;
@@ -294,9 +255,7 @@ int main(int argc, char **argv)
 	for (set<string>::iterator it = key_set.begin(); it != key_set.end(); ++it)
 		keys.push_back(it->c_str());
 
-	if (test_darts<Darts::DoubleArray>(key_set, keys) != 0
-		|| test_darts<Darts::HugeDoubleArray>(key_set, keys) != 0
-		|| test_darts<Darts::DoubleArrayBase<double, 3> >(key_set, keys) != 0)
+	if (test_darts(key_set, keys) != 0)
 		return 1;
 
 	return 0;

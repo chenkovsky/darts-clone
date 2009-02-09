@@ -17,7 +17,6 @@ TIME_SRCS = darts-clone-time.cpp
 TIME_OBJS = $(TIME_SRCS:.cpp=.obj)
 TIME = darts-clone-time
 
-
 .cpp.obj:
 	$(CC) -c $(CFLAGS) $<
 

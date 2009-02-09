@@ -416,10 +416,6 @@ bool time_main(vector<const char *> &keys, const vector<const char *> &lines)
 	if (!test<Darts::DoubleArray>(keys, lines))
 		return false;
 
-	sort(keys.begin(), keys.end(), KeyLessThan());
-	if (!test<Darts::HugeDoubleArray>(keys, lines))
-		return false;
-
 	return true;
 }
 

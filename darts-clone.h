@@ -1,34 +1,62 @@
 #ifndef DARTS_H_
 #define DARTS_H_
-#include <iostream>
+
 // A clone of the Darts (Double-ARray Trie System)
 //
 // Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #define DARTS_VERSION "0.32"
-#define DARTS_CLONE_VERSION "0.32e"
+#define DARTS_CLONE_VERSION "0.32f"
 
 #ifdef _MSC_VER
 #include <stdio.h>
 #include <share.h>
-#endif
+#endif  // _MSC_VER
 
-#include <algorithm>
-#include <cassert>
 #include <cstdio>
 #include <exception>
 #include <stack>
 #include <vector>
 
+// Defines macros for debugging.
+#ifdef _DEBUG
+#include <iostream>
+#define LOG (std::cerr << "DEBUG:" << __LINE__ << ": ")
+#define LOG_VALUE(value) (LOG << # value << " = " << value << '\n')
+#else  // _DEBUG
+#define LOG
+#define LOG_VALUE(value)
+#endif  // _DEBUG
+
 // Defines macros for throwing exceptions with line numbers.
 #define THROW(msg) THROW_RELAY(__LINE__, msg)
 #define THROW_RELAY(line, msg) THROW_FINAL(line, msg)
-#define THROW_FINAL(line, msg) \
-	throw exception("darts-clone-" DARTS_CLONE_VERSION " [" # line "]: " msg)
+#define THROW_FINAL(line, msg) throw \
+	DoubleArrayException("darts-clone-" DARTS_CLONE_VERSION \
+		" [" # line "]: " msg)
 
 namespace Darts
 {
+
+// This class provides basic types used in this library.
+class DoubleArrayBasicTypes
+{
+public:
+	typedef char char_type;
+	typedef unsigned char uchar_type;
+
+	// Must be a 32-bit unsigned integer type.
+	typedef unsigned int base_type;
+	typedef std::size_t size_type;
+
+	// Must be a 32-bit signed integer type.
+	typedef int value_type;
+
+private:
+	// No objects.
+	DoubleArrayBasicTypes();
+};
 
 // Exception class.
 class DoubleArrayException : public std::exception
@@ -44,42 +72,26 @@ public:
 	const char *what() const throw() { return msg_; }
 };
 
-// Common types are defined here.
-class DoubleArrayCommonTypes
-{
-public:
-	typedef char char_type;
-	typedef unsigned char uchar_type;
-	// Must be a 32-bit unsigned integer type.
-	typedef unsigned int base_type;
-	typedef std::size_t size_type;
-
-	// For compatibility.
-	typedef char_type key_type;
-
-	typedef DoubleArrayException exception;
-};
-
-// The default progress function does nothing.
-class DefaultProgressFunc : public DoubleArrayCommonTypes
-{
-public:
-	int operator()(size_type, size_type) const { return 1; }
-};
-
 // File I/O.
-class DoubleArrayFile : DoubleArrayCommonTypes
+class DoubleArrayFile
 {
+public:
+	typedef DoubleArrayBasicTypes::size_type size_type;
+
 private:
 	std::FILE *file_;
+
+	// Copies are not allowed.
+	DoubleArrayFile(const DoubleArrayFile &);
+	DoubleArrayFile &operator=(const DoubleArrayFile &);
 
 public:
 	DoubleArrayFile(const char *file_name, const char *mode) : file_(0)
 	{
 		if (!file_name)
-			THROW("Null file name");
+			THROW("null file name");
 		else if (!mode)
-			THROW("Null file mode");
+			THROW("null file mode");
 
 #ifdef _MSC_VER
 		// To avoid warnings against std::fopen().
@@ -90,12 +102,9 @@ public:
 	}
 	~DoubleArrayFile() { is_open() && std::fclose(file_); }
 
+	// Moves a file pointer.
 	bool seek(size_type offset, int whence = SEEK_SET)
-	{
-		assert(whence == SEEK_SET || whence == SEEK_CUR || whence == SEEK_END);
-
-		return std::fseek(file_, static_cast<long>(offset), whence) == 0;
-	}
+	{ return std::fseek(file_, static_cast<long>(offset), whence) == 0; }
 
 	// Gets the file size.
 	bool size(size_type &file_size)
@@ -112,229 +121,493 @@ public:
 		return true;
 	}
 
+	// Reads units from a file.
 	template <typename T>
 	bool read(T *buf, size_type nmemb)
 	{ return std::fread(buf, sizeof(T), nmemb, file_) == nmemb; }
+	// Writes units to a file.
 	template <typename T>
 	bool write(const T *buf, size_type nmemb)
 	{ return std::fwrite(buf, sizeof(T), nmemb, file_) == nmemb; }
 
-	bool is_open() const { return file_ != 0; }
+	// Checks if a file is opened or not.
+	bool is_open() const { return file_ ? true : false; }
 };
 
-// Key.
+// A range for keys.
+class DoubleArrayKeyRange
+{
+public:
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::size_type size_type;
+
+public:
+	DoubleArrayKeyRange(size_type begin, size_type end, size_type depth)
+		: begin_(begin), end_(end), depth_(depth), index_(0) {}
+
+	void set_index(base_type index) { index_ = index; }
+
+	size_type begin() const { return begin_; }
+	size_type end() const { return end_; }
+	size_type depth() const { return depth_; }
+	base_type index() const { return index_; }
+
+private:
+	size_type begin_;
+	size_type end_;
+	size_type depth_;
+	base_type index_;
+};
+
+// An object pool for building a dawg.
 template <typename ValueType>
-class DoubleArrayKey : public DoubleArrayCommonTypes
+class DoubleArrayPool
 {
 public:
 	typedef ValueType value_type;
-	typedef DoubleArrayKey key_type;
 
-	// For sorting reversed keys.
-	class ReversedComparisonFunc
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::size_type size_type;
+
+	// Number of nodes in each block.
+	enum { BLOCK_SIZE = 1024 };
+
+private:
+	std::vector<value_type *> blocks_;
+	base_type size_;
+
+	// Copies are not allowed.
+	DoubleArrayPool(const DoubleArrayPool &);
+	DoubleArrayPool &operator=(const DoubleArrayPool &);
+
+public:
+	DoubleArrayPool() : blocks_(), size_(0) {}
+	~DoubleArrayPool() { clear(); }
+
+	// Deletes all blocks.
+	void clear()
 	{
-	public:
-		bool operator()(const key_type &lhs, const key_type &rhs) const
+		for (size_type i = 0; i < blocks_.size(); ++i)
+			delete [] blocks_[i];
+
+		size_ = 0;
+		std::vector<value_type *>(0).swap(blocks_);
+	}
+
+	// Gets a new object.
+	base_type get()
+	{
+		if (size_ == static_cast<base_type>(BLOCK_SIZE * blocks_.size()))
+			blocks_.push_back(new value_type[BLOCK_SIZE]);
+		return size_++;
+	}
+
+	// Reads the number of values.
+	base_type size() const { return size_; }
+
+	// Accesses a value.
+	value_type &operator[](base_type index)
+	{ return blocks_[index / BLOCK_SIZE][index % BLOCK_SIZE]; }
+	// Accesses a value.
+	const value_type &operator[](base_type index) const
+	{ return blocks_[index / BLOCK_SIZE][index % BLOCK_SIZE]; }
+};
+
+// Directed Acyclic Word Graph (DAWG).
+class DoubleArrayDawg
+{
+public:
+	typedef DoubleArrayBasicTypes::char_type char_type;
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::size_type size_type;
+	typedef DoubleArrayBasicTypes::value_type value_type;
+
+	typedef std::pair<base_type, base_type> pair_type;
+	typedef DoubleArrayPool<pair_type> pair_pool_type;
+	typedef DoubleArrayPool<char_type> char_pool_type;
+
+private:
+	pair_pool_type state_pool_;
+	char_pool_type label_pool_;
+	pair_pool_type node_pool_;
+	std::stack<base_type> recycle_stack_;
+	base_type num_of_merged_states_;
+
+	// Copies are not allowed.
+	DoubleArrayDawg(const DoubleArrayDawg &);
+	DoubleArrayDawg &operator=(const DoubleArrayDawg &);
+
+public:
+	DoubleArrayDawg() : state_pool_(), label_pool_(), node_pool_(),
+		recycle_stack_(), num_of_merged_states_(0) {}
+
+	// Builds a dawg.
+	void build(size_type num_of_keys, const char_type * const *keys,
+		const size_type *lengths, const value_type *values,
+		int (*progress_func)(size_type, size_type))
+	{
+		// For the root state and the root node.
+		get();
+		set_label(0, 0);
+
+		// Inserts and merges keys.
+		size_type key_id = num_of_keys;
+		size_type max_progress = num_of_keys + num_of_keys / 4;
+		while (key_id--)
 		{
-			base_type i = 0;
-			while (lhs.rkey(i) != 0 && lhs.rkey(i) == rhs.rkey(i))
-				++i;
-			return lhs.rkey(i) > rhs.rkey(i);
+			const char_type *key = keys[key_id];
+			size_type length = lengths ? lengths[key_id] : length_of(key);
+			value_type value = values[key_id];
+
+			insert_key(key, length, value);
+
+			if (progress_func)
+				progress_func(num_of_keys - key_id, max_progress);
 		}
-	};
+
+		// Merges states corresponding to the first key.
+		merge(0);
+		node_pool_.clear();
+
+		LOG_VALUE(state_pool_.size());
+		LOG_VALUE(recycle_stack_.size());
+		LOG_VALUE(num_of_merged_states_);
+	}
+
+	// Gets the size of a state pool.
+	base_type size() const
+	{ return static_cast<base_type>(state_pool_.size()); }
+	// Gets the number of states.
+	base_type num_of_states() const
+	{ return static_cast<base_type>(size() - recycle_stack_.size()); }
+
+public:
+	// Clears a state.
+	void clear_state(base_type index)
+	{ state_pool_[index] = pair_type(0, 0); }
+
+	// Sets an index of a next state.
+	void set_child(base_type index, base_type child)
+	{ state_pool_[index].first = child << 1; }
+	// Sets an index of a sibling state.
+	void set_sibling(base_type index, base_type sibling)
+	{ state_pool_[index].second = sibling << 1; }
+	// Sets a value of a leaf state.
+	void set_value(base_type index, value_type value)
+	{ state_pool_[index].first = (value << 1) | 1; }
+
+	// Sets a label.
+	void set_label(base_type index, char_type label)
+	{ label_pool_[index] = label; }
+
+	// Reads an index of a next state.
+	base_type child(base_type index) const
+	{ return get_value(state_pool_[index].first); }
+	// Reads an index of a sibling state.
+	base_type sibling(base_type index) const
+	{ return get_value(state_pool_[index].second); }
+	// Checks if a state is a leaf or not.
+	bool is_leaf(base_type index) const
+	{ return get_bit(state_pool_[index].first); }
+	// Reads a value of a leaf state.
+	value_type value(base_type index) const
+	{ return get_value(state_pool_[index].first); }
+
+	// Reads a label.
+	char_type label(base_type index) const
+	{ return label_pool_[index]; }
 
 private:
-	const char_type *key_;
-	base_type length_;
-	base_type index_;
-	value_type value_;
+	// Clears a node.
+	void clear_node(base_type index)
+	{ node_pool_[index] = pair_type(0, 0); }
 
-public:
-	DoubleArrayKey() : key_(0), length_(0) {}
-	explicit DoubleArrayKey(const char_type *key) : key_(key), length_(0)
+	// Sets an index of the root node.
+	void set_root_node(base_type root_node)
+	{ set_right(0, root_node); }
+	// Sets a node color of a red-black tree.
+	void set_is_red(base_type index, bool is_red)
 	{
-		while (key_[length_] != 0)
-			++length_;
+		if (is_red)
+			node_pool_[index].first |= 1;
+		else
+			node_pool_[index].first &= ~static_cast<base_type>(1);
 	}
-	DoubleArrayKey(const char_type *key, size_type length)
-		: key_(key), length_(static_cast<base_type>(length))
+	// Reads an index of a left node.
+	void set_left(base_type index, base_type left)
 	{
-		if (std::find(key_, key_ + length_, 0) != (key_ + length_))
-			THROW("Null character appears in a key");
+		node_pool_[index].first &= 1;
+		node_pool_[index].first |= left << 1;
 	}
+	// Reads an index of a right node.
+	void set_right(base_type index, base_type right)
+	{ node_pool_[index].second = right; }
 
-	// Compares 2 keys like std::strcmp().
-	int compare(const DoubleArrayKey &rhs) const
-	{
-		base_type i = 0;
-		while ((*this)[i] != 0 && (*this)[i] == rhs[i])
-			++i;
-		return (*this)[i] - rhs[i];
-	}
-
-	// Checks if a key is a suffix of another key.
-	bool is_suffix_of(const DoubleArrayKey &rhs) const
-	{
-		base_type i = 0;
-		while (rkey(i) != 0 && rkey(i) == rhs.rkey(i))
-			++i;
-		return rkey(i) == 0;
-	}
-
-	base_type length() const { return length_; }
-	base_type index() const { return index_; }
-	value_type value() const { return value_; }
-
-	void set_index(base_type index) { index_ = index; }
-	void set_value(value_type value) { value_ = value; }
-
-	uchar_type operator[](base_type index) const
-	{ return static_cast<uchar_type>((index != length_) ? key_[index] : 0); }
-
-	DoubleArrayKey &operator++() { ++key_, --length_; return *this; }
-	DoubleArrayKey &operator--() { --key_, ++length_; return *this; }
+	// Reads an index of the root node.
+	base_type root_node() const
+	{ return right(0); }
+	// Checks if a node of a red-black tree is red or not.
+	bool is_red(base_type index) const
+	{ return get_bit(node_pool_[index].first); }
+	// Reads an index of a left node.
+	base_type left(base_type index) const
+	{ return get_value(node_pool_[index].first); }
+	// Reads an index of a right node.
+	base_type right(base_type index) const
+	{ return node_pool_[index].second; }
 
 private:
-	uchar_type rkey(base_type index) const
+	// Keys should be inserted in reverse order.
+	void insert_key(const char_type *key, size_type length, value_type value)
 	{
-		return static_cast<uchar_type>(
-			(index != length_) ? key_[length_ - index - 1] : 0);
+		base_type index = 0;
+		base_type key_pos = 0;
+
+		// Finds a separate state.
+		for ( ; key_pos <= length; ++key_pos)
+		{
+			base_type child_index = child(index);
+			if (!child_index)
+				break;
+			else if (label(child_index) != get_key_label(key, length, key_pos))
+			{
+				set_child(index, merge(child_index));
+				break;
+			}
+			index = child_index;
+		}
+
+		// Adds new states.
+		for ( ; key_pos <= length; ++key_pos)
+		{
+			base_type child_index = get();
+			set_sibling(child_index, child(index));
+			set_label(child_index, get_key_label(key, length, key_pos));
+			set_child(index, child_index);
+			index = child_index;
+		}
+		set_value(index, value);
 	}
-};
 
-// Range of keys to be arranged.
-template <typename ValueType>
-class DoubleArrayKeyRange : DoubleArrayCommonTypes
-{
-public:
-	typedef ValueType value_type;
-	typedef DoubleArrayKey<value_type> key_type;
-	typedef typename std::vector<key_type>::iterator iterator;
+	// Merges common states recursively.
+	base_type merge(base_type index)
+	{
+		if (child(index) && !is_leaf(index))
+		{
+			base_type child_index = merge(child(index));
+			set_child(index, child_index);
+		}
 
-public:
-	DoubleArrayKeyRange(iterator begin, iterator end, base_type index = 0)
-		: begin_(begin), end_(end), index_(index) {}
+		base_type matched_index = find_state(index);
+		if (matched_index)
+		{
+			unget(index);
+			index = matched_index;
+			++num_of_merged_states_;
+		}
+		else
+			insert_state(index);
 
-	size_type size() const
-	{ return static_cast<size_type>(std::distance(begin_, end_)); }
-
-	void set_index(base_type index) { index_ = index; }
-
-	iterator begin() { return begin_; }
-	iterator end() { return end_; }
-	base_type index() const { return index_; }
+		return index;
+	}
 
 private:
-	iterator begin_;
-	iterator end_;
-	base_type index_;
-};
+	// Finds a state from a red-black tree.
+	base_type find_state(base_type index)
+	{
+		base_type node = root_node();
+		while (node)
+		{
+			int cmp = compare_states(index, node);
+			if (!cmp)
+				return node;
+			else if (cmp < 0)
+				node = left(node);
+			else
+				node = right(node);
+		}
+		return 0;
+	}
 
-// Functions to choose keys are to be sorted or not.
-template <bool ToBeSorted>
-class DoubleArraySwitcher
-{
-public:
-	template <typename Iterator>
-	Iterator operator()(Iterator, Iterator end) const { return end; }
-};
-template <>
-class DoubleArraySwitcher<false>
-{
-public:
-	template <typename Iterator>
-	Iterator operator()(Iterator begin, Iterator) const { return begin; }
+	// Inserts a state into a red-black tree.
+	void insert_state(base_type index)
+	{ set_root_node(insert_state(root_node(), index)); }
+	// Inserts a state into a red-black tree.
+	base_type insert_state(base_type node, base_type index)
+	{
+		if (!node)
+		{
+			set_is_red(index, true);
+			return index;
+		}
+
+		if (is_red(left(node)) && is_red(right(node)))
+			color_flip(node);
+
+		int cmp = compare_states(index, node);
+		if (cmp < 0)
+			set_left(node, insert_state(left(node), index));
+		else if (cmp > 0)
+			set_right(node, insert_state(right(node), index));
+
+		if (is_red(right(node)))
+			node = rotate_left(node);
+		if (is_red(left(node)) && is_red(left(left(node))))
+			node = rotate_right(node);
+
+		return node;
+	}
+
+	// Compares a pair of states.
+	int compare_states(base_type lhs, base_type rhs) const
+	{
+		const pair_type &lhs_state = state_pool_[lhs];
+		const pair_type &rhs_state = state_pool_[rhs];
+
+		if (lhs_state.first < rhs_state.first)
+			return -1;
+		else if (lhs_state.first > rhs_state.first)
+			return 1;
+
+		if (lhs_state.second < rhs_state.second)
+			return -1;
+		else if (lhs_state.second > rhs_state.second)
+			return 1;
+
+		return label_pool_[lhs] - label_pool_[rhs];
+	}
+
+	// Rotation for a red-black tree.
+	base_type rotate_left(base_type index)
+	{
+		base_type x_index = right(index);
+		set_right(index, left(x_index));
+		set_left(x_index, index);
+		set_is_red(x_index, is_red(index));
+		set_is_red(index, true);
+		return x_index;
+	}
+	// Rotation for a red-black tree.
+	base_type rotate_right(base_type index)
+	{
+		base_type x_index = left(index);
+		set_left(index, right(x_index));
+		set_right(x_index, index);
+		set_is_red(x_index, is_red(index));
+		set_is_red(index, true);
+		return x_index;
+	}
+	// Flips a color.
+	void color_flip(base_type index)
+	{
+		set_is_red(index, !is_red(index));
+		set_is_red(left(index), !is_red(left(index)));
+		set_is_red(right(index), !is_red(right(index)));
+	}
+
+private:
+	// Gets new objects.
+	base_type get()
+	{
+		base_type index = 0;
+		if (recycle_stack_.empty())
+		{
+			index = state_pool_.get();
+			label_pool_.get();
+			node_pool_.get();
+		}
+		else
+		{
+			index = recycle_stack_.top();
+			recycle_stack_.pop();
+		}
+		clear_state(index);
+		clear_node(index);
+		return index;
+	}
+	// Ungets latest objects.
+	void unget(base_type index) { recycle_stack_.push(index); }
+
+	// Gets a least significant bit.
+	static bool get_bit(base_type value) { return (value & 1) ? true : false; }
+	// Gets a value except for a least significant bit.
+	static base_type get_value(base_type value) { return value >> 1; }
+	// Gets a byte from a key.
+	static char_type get_key_label(const char_type *key,
+		size_type length, size_type key_pos)
+	{ return (key_pos < length) ? key[key_pos] : 0; }
+
+	// Scans a given key and returns its length.
+	static size_type length_of(const char_type *key)
+	{
+		size_type count = 0;
+		while (key[count])
+			++count;
+		return count;
+	}
 };
 
 // A unit of a double-array.
-template <int IdBits>
-class DoubleArrayUnit : public DoubleArrayCommonTypes
+class DoubleArrayUnit
 {
 public:
-	// Constant values.
-	enum
-	{
-		VALUE_ID_BITS = IdBits,
-		LINK_BITS = 32 - 1 - VALUE_ID_BITS,
-	};
+	typedef DoubleArrayBasicTypes::uchar_type uchar_type;
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::value_type value_type;
 
 	static const base_type OFFSET_MAX = static_cast<base_type>(1) << 21;
-	static const base_type VALUE_ID_MAX =
-		static_cast<base_type>(1) << VALUE_ID_BITS;
-	static const base_type LINK_MAX = static_cast<base_type>(1) << LINK_BITS;
+	static const base_type IS_LEAF_BIT = static_cast<base_type>(1) << 31;
+	static const base_type HAS_LEAF_BIT = static_cast<base_type>(1) << 8;
+	static const base_type EXTENSION_BIT = static_cast<base_type>(1) << 9;
 
 private:
-	base_type values_;
+	base_type base_;
 
 public:
-	DoubleArrayUnit() : values_(0) {}
-	explicit DoubleArrayUnit(base_type values) : values_(values) {}
+	DoubleArrayUnit() : base_(0) {}
 
-	// Sets values.
-	void set_is_leaf() { values_ |= 1; }
-	void set_is_end() { values_ |= 2; }
-	void set_label(uchar_type label) { set<2, 8>(label); }
+	// Sets a flag to show that a unit has a leaf as a child.
+	void set_has_leaf() { base_ |= HAS_LEAF_BIT; }
+	// Sets a value to a leaf unit.
+	void set_value(value_type value)
+	{ base_ = static_cast<base_type>(value) | IS_LEAF_BIT; }
+	// Sets a label to a non-leaf unit.
+	void set_label(uchar_type label)
+	{ base_ = (base_ & ~static_cast<base_type>(0xFF)) | label; }
+	// Sets an offset to a non-leaf unit.
 	void set_offset(base_type offset)
 	{
 		if (offset >= (OFFSET_MAX << 8))
-			THROW("Too large offset");
+			THROW("too large offset");
 
-		set<10, 22>((offset < OFFSET_MAX)
-			? offset : ((1 << 21) + (offset >> 8)));
-	}
-	void set_value_id(base_type value_id) { set<1, VALUE_ID_BITS>(value_id); }
-	void set_link(base_type link)
-	{
-		if (link >= LINK_MAX)
-			THROW("Too large link address");
-
-		set<1 + VALUE_ID_BITS, LINK_BITS>(link);
+		base_ &= IS_LEAF_BIT | HAS_LEAF_BIT | 0xFF;
+		if (offset < OFFSET_MAX)
+			base_ |= (offset << 10);
+		else
+			base_ |= (offset << 2) | EXTENSION_BIT;
 	}
 
-	// Gets values.
-	bool is_leaf() const { return (values_ & 1) == 1; }
-	bool is_end() const { return (values_ & 2) == 2; }
-	uchar_type label() const { return get<2, 8, uchar_type>(); }
+	// Checks if a unit has a leaf as a child or not.
+	bool has_leaf() const { return (base_ & HAS_LEAF_BIT) ? true : false; }
+	// Checks if a unit corresponds to a leaf or not.
+	value_type value() const
+	{ return static_cast<value_type>(base_ & ~IS_LEAF_BIT); }
+	// Reads a label with a leaf flag from a non-leaf unit.
+	base_type label() const { return base_ & (IS_LEAF_BIT | 0xFF); }
+	// Reads an offset to child units from a non-leaf unit.
 	base_type offset() const
-	{
-		base_type offset = get<10, 22, base_type>();
-		return (offset < OFFSET_MAX) ? offset : ((offset - OFFSET_MAX) << 8);
-	}
-	base_type value_id() const { return get<1, VALUE_ID_BITS, base_type>(); }
-	base_type link() const
-	{ return get<1 + VALUE_ID_BITS, LINK_BITS, base_type>(); }
-
-	// These are used in matching.
-	void set_index(base_type index) { set<1, 31>(index); }
-	base_type index() const { return get<1, 31, base_type>(); }
-	base_type values() const { return values_; }
-
-private:
-	// Sets a values.
-	template <int OffsetBits, int NumOfBits, typename ValueType>
-	void set(ValueType value)
-	{
-		static const base_type MASK =
-			((static_cast<base_type>(1) << (NumOfBits)) - 1) << (OffsetBits);
-
-		values_ &= ~MASK;
-		values_ |= static_cast<base_type>(value) << (OffsetBits);
-	}
-
-	// Gets a value.
-	template <int OffsetBits, int NumOfBits, typename ValueType>
-	ValueType get() const
-	{
-		static const base_type MASK =
-			((static_cast<base_type>(1) << (NumOfBits)) - 1) << (OffsetBits);
-
-		return static_cast<ValueType>((values_ & MASK) >> (OffsetBits));
-	}
+	{ return (base_ >> 10) << ((base_ & EXTENSION_BIT) >> 6); }
+	// Reads an offset to child units from a non-leaf unit by using if.
+	base_type offset_if() const
+	{ return (base_ & EXTENSION_BIT) ? ((base_ >> 10) << 8) : (base_ >> 10); }
 };
 
-// An extra information for building a double-array.
-class DoubleArrayExtra : public DoubleArrayCommonTypes
+// An extra information which are used for building a double-array.
+class DoubleArrayExtra
 {
+public:
+	typedef DoubleArrayBasicTypes::base_type base_type;
+
 private:
 	base_type lo_values_;
 	base_type hi_values_;
@@ -344,35 +617,42 @@ public:
 
 	void clear() { lo_values_ = hi_values_ = 0; }
 
-	// Sets values.
+	// Sets if a unit is fixed or not.
 	void set_is_fixed() { lo_values_ |= 1; }
+	// Sets an index of the next unused unit.
 	void set_next(base_type next)
 	{ lo_values_ = (lo_values_ & 1) | (next << 1); }
+	// Sets if an index is used as an offset or not.
 	void set_is_used() { hi_values_ |= 1; }
+	// Sets an index of the previous unused unit.
 	void set_prev(base_type prev)
 	{ hi_values_ = (hi_values_ & 1) | (prev << 1); }
 
-	// Gets values.
+	// Reads if a unit is fixed or not.
 	bool is_fixed() const { return (lo_values_ & 1) == 1; }
+	// Reads an index of the next unused unit.
 	base_type next() const { return lo_values_ >> 1; }
+	// Reads if an index is used as an offset or not.
 	bool is_used() const { return (hi_values_ & 1) == 1; }
+	// Reads an index of the previous unused unit.
 	base_type prev() const { return hi_values_ >> 1; }
 };
 
 // A class for building a double-array.
-template <typename ValueType, int IdBits, typename ProgressFunc>
-class DoubleArrayBuilder : public DoubleArrayCommonTypes
+class DoubleArrayBuilder
 {
 public:
-	enum { VALUE_ID_BITS = IdBits };
+	typedef DoubleArrayBasicTypes::char_type char_type;
+	typedef DoubleArrayBasicTypes::uchar_type uchar_type;
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::size_type size_type;
+	typedef DoubleArrayBasicTypes::value_type value_type;
 
-	typedef ValueType value_type;
-	typedef DoubleArrayKey<value_type> key_type;
-	typedef DoubleArrayKeyRange<value_type> range_type;
-	typedef DoubleArrayUnit<VALUE_ID_BITS> unit_type;
+	typedef DoubleArrayKeyRange range_type;
+	typedef DoubleArrayDawg dawg_type;
+	typedef DoubleArrayUnit unit_type;
 	typedef DoubleArrayExtra extra_type;
 
-	// Constant values.
 	enum
 	{
 		BLOCK_SIZE = 256,
@@ -381,209 +661,311 @@ public:
 	};
 
 private:
-	std::vector<key_type> &keys_;
-	std::vector<unit_type> &units_;
-	ProgressFunc progress_func_;
+	// Masks for offsets.
+	static const base_type LOWER_MASK = unit_type::OFFSET_MAX - 1;
+	static const base_type UPPER_MASK = ~LOWER_MASK;
 
-	std::vector<std::vector<extra_type> *> extras_;
+private:
+	size_type num_of_keys_;
+	const char_type * const *keys_;
+	const size_type *lengths_;
+	const value_type *values_;
+
+	int (*progress_func_)(size_type, size_type);
+	size_type progress_;
+	size_type max_progress_;
+
+	std::vector<unit_type> units_;
+	std::vector<extra_type *> extras_;
+	std::vector<uchar_type> labels_;
 	base_type unfixed_index_;
-	base_type num_of_unused_indices_;
+	size_type num_of_unused_units_;
 
-	base_type tail_index_;
-
-	// Disables copies.
+	// Copies are not allowed.
 	DoubleArrayBuilder(const DoubleArrayBuilder &);
 	DoubleArrayBuilder &operator=(const DoubleArrayBuilder &);
 
 public:
-	// Builds a double-array from a set of keys.
-	static void build(std::vector<key_type> &keys,
-		std::vector<unit_type> &units, ProgressFunc progress_func)
-	{
-		DoubleArrayBuilder builder(keys, units, progress_func);
-		builder.build();
-
-		// Shrinks a double-array if possible.
-		try { std::vector<unit_type>(units).swap(units); }
-		catch (const std::exception &) {}
-	}
-
-private:
-	DoubleArrayBuilder(std::vector<key_type> &keys,
-		std::vector<unit_type> &units, ProgressFunc progress_func)
-		: keys_(keys), units_(units), progress_func_(progress_func),
-		extras_(), unfixed_index_(0), num_of_unused_indices_(0),
-		tail_index_(0) {}
-
+	DoubleArrayBuilder() : num_of_keys_(0), keys_(0), lengths_(0), values_(0),
+		progress_func_(0), progress_(0), max_progress_(0), units_(), extras_(),
+		labels_(), unfixed_index_(0), num_of_unused_units_(0) {}
 	~DoubleArrayBuilder()
 	{
 		for (size_type i = 0; i < extras_.size(); ++i)
-			delete extras_[i];
+			delete [] extras_[i];
 	}
 
-	void build()
+	// Copies parameters and builds a double-array.
+	bool build(size_type num_of_keys, const char_type * const *keys,
+		const size_type *lengths, const value_type *values,
+		int (*progress_func)(size_type, size_type))
 	{
-		build_trie();
-		arrange_suffixes();
+		// Copies parameters.
+		num_of_keys_ = num_of_keys;
+		keys_ = keys;
+		lengths_ = lengths;
+		values_ = values;
+		progress_func_ = progress_func;
+
+		test_keys();
+		LOG_VALUE(num_of_keys_);
+
+		// Builds a naive trie.
+		if (!values_)
+			build_trie();
+		else
+			build_dawg();
+		LOG_VALUE(num_of_units());
+
+		// Shrinks a double-array.
+		std::vector<unit_type>(units_).swap(units_);
+
+		return true;
 	}
 
-private:
-	unit_type &units(base_type index) { return units_[index]; }
-	extra_type &extras(base_type index)
-	{ return (*extras_[index / BLOCK_SIZE])[index % BLOCK_SIZE]; }
-
-	// Including units for suffixes.
-	base_type num_of_units() const
-	{ return static_cast<base_type>(units_.size()); }
-	// Not including units for suffixes.
-	base_type num_of_blocks() const
-	{ return static_cast<base_type>(extras_.size()); }
+	// Returns a reference to a built double-array.
+	std::vector<unit_type> &units_buf() { return units_; }
 
 private:
-	// Builds a minimal prefix trie.
+	// Builds a trie.
 	void build_trie()
 	{
 		// 0 is reserved for the root.
-		// 1 is reserved for the number of units.
-		reserve_index(0);
-		reserve_index(1);
+		reserve_unit(0);
 
 		// To avoid invalid transitions.
 		extras(0).set_is_used();
 		units(0).set_offset(1);
 		units(0).set_label(0);
-		units(1).set_label(1);
 
-		if (!keys_.empty())
-			build_trie_subroutine();
+		progress_ = 0;
+		max_progress_ = num_of_keys_;
 
-		// Fixes remaining blocks.
+		if (num_of_keys_)
+			build_double_array();
+
+		// Adjusts all unfixed blocks.
 		fix_all_blocks();
-
-		// Stores the number of units.
-		units(1).set_offset(num_of_units());
 	}
 
-	// Builds a minimal prefix trie.
-	void build_trie_subroutine()
+	// Builds a double-array.
+	void build_double_array()
 	{
 		std::stack<range_type> range_stack;
-		range_stack.push(range_type(keys_.begin(), keys_.end(), 0));
+		range_stack.push(range_type(0, num_of_keys_, 0));
 
-		size_type leaf_count = 0;
-		std::vector<uchar_type> labels;
-		std::vector<range_type> next_ranges;
+		std::vector<range_type> child_ranges;
 		while (!range_stack.empty())
 		{
 			range_type range = range_stack.top();
 			range_stack.pop();
 
-			// Marks a leaf unit.
-			// Note: The root must not be a leaf.
-			if (range.index() != 0 && range.size() == 1)
+			// Lists labels to child units.
+			size_type child_begin = range.begin();
+			labels_.push_back(keys(child_begin, range.depth()));
+			for (size_type i = range.begin() + 1; i != range.end(); ++i)
 			{
-				--*range.begin();
+				if (!labels_.back())
+					progress();
 
-				range.begin()->set_index(range.index());
-				units(range.index()).set_is_leaf();
-
-				progress_func_(++leaf_count, keys_.size());
-				continue;
-			}
-
-			// Lists labels and next ranges.
-			labels.push_back((*range.begin())[0]);
-			if (labels[0] == 0)
-				units(range.index()).set_is_end();
-			typename range_type::iterator next_begin = range.begin();
-			for (typename range_type::iterator it = range.begin();
-				it != range.end(); ++it)
-			{
-				if ((*it)[0] != labels.back())
+				if (keys(i, range.depth()) != labels_.back())
 				{
-					labels.push_back((*it)[0]);
-					next_ranges.push_back(range_type(next_begin, it));
-					next_begin = it;
+					labels_.push_back(keys(i, range.depth()));
+					child_ranges.push_back(
+						range_type(child_begin, i, range.depth() + 1));
+					child_begin = i;
 				}
-				++*it;
 			}
-			next_ranges.push_back(range_type(next_begin, range.end()));
-
-			assert(labels.size() == next_ranges.size());
+			if (!labels_.back())
+				progress();
+			child_ranges.push_back(
+				range_type(child_begin, range.end(), range.depth() + 1));
 
 			// Finds a good offset.
-			base_type offset_index = find_offset_index(range.index(), labels);
-			base_type offset = range.index() ^ offset_index;
-			units(range.index()).set_offset(offset);
+			base_type offset = find_offset(range.index());
+			units(range.index()).set_offset(range.index() ^ offset);
 
-			for (size_type i = next_ranges.size(); i > 0; )
+			for (size_type i = child_ranges.size(); i > 0; )
 			{
-				--i;
-
 				// Reserves a child unit.
-				base_type child_index = offset_index ^ labels[i];
-				reserve_index(child_index);
-				units(child_index).set_label(labels[i]);
+				base_type child = offset ^ labels_[--i];
+				reserve_unit(child);
 
-				// Pushes a next range to a stack.
-				next_ranges[i].set_index(child_index);
-				range_stack.push(next_ranges[i]);
+				if (!labels_[i])
+				{
+					// Sets a value for a leaf unit.
+					units(range.index()).set_has_leaf();
+					units(child).set_value(values_ ? values_[range.begin() + i]
+						: static_cast<value_type>(range.begin() + i));
+				}
+				else
+				{
+					units(child).set_label(labels_[i]);
+					child_ranges[i].set_index(child);
+					range_stack.push(child_ranges[i]);
+				}
 			}
-			extras(offset_index).set_is_used();
+			extras(offset).set_is_used();
 
-			labels.clear();
-			next_ranges.clear();
+			labels_.clear();
+			child_ranges.clear();
 		}
 	}
 
-	// Finds a good offset.
-	base_type find_offset_index(base_type index,
-		const std::vector<uchar_type> &labels)
+private:
+	// Builds a dawg.
+	void build_dawg()
 	{
-		static const base_type LOWER_MASK = unit_type::OFFSET_MAX - 1;
-		static const base_type UPPER_MASK = ~LOWER_MASK;
+		dawg_type dawg;
+		dawg.build(num_of_keys_, keys_, lengths_, values_, progress_func_);
 
-		// Scans empty units.
-		if (unfixed_index_ < num_of_units())
+		std::vector<base_type> offset_values(dawg.size(), 0);
+
+		// 0 is reserved for the root.
+		reserve_unit(0);
+
+		// To avoid invalid transitions.
+		extras(0).set_is_used();
+		units(0).set_offset(1);
+		units(0).set_label(0);
+
+		progress_ = dawg.num_of_states() * 4;
+		max_progress_ = dawg.num_of_states() * 5;
+
+		build_double_array(dawg, offset_values, 0, 0);
+
+		// Fixes remaining blocks.
+		fix_all_blocks();
+	}
+
+	// Builds a double-array.
+	void build_double_array(const dawg_type &dawg,
+		std::vector<base_type> &offset_values,
+		base_type dawg_index, base_type da_index)
+	{
+		progress();
+
+		if (dawg.is_leaf(dawg_index))
+			return;
+
+		// Already arranged.
+		base_type dawg_child_index = dawg.child(dawg_index);
+		if (offset_values[dawg_child_index])
 		{
-			base_type unfixed_index = unfixed_index_;
-			do
+			base_type offset = offset_values[dawg_child_index] ^ da_index;
+			if (!(offset & LOWER_MASK) || !(offset & UPPER_MASK))
 			{
-				base_type offset_index = unfixed_index ^ labels[0];
-				base_type offset = index ^ offset_index;
-
-				if (!extras(offset_index).is_used()
-					&& (!(offset & LOWER_MASK) || !(offset & UPPER_MASK)))
-				{
-					// Finds a collision.
-					bool has_collision = false;
-					for (size_type i = 1; i < labels.size(); ++i)
-					{
-						if (extras(offset_index ^ labels[i]).is_fixed())
-						{
-							has_collision = true;
-							break;
-						}
-					}
-
-					if (!has_collision)
-						return offset_index;
-				}
-				unfixed_index = extras(unfixed_index).next();
-			} while (unfixed_index != unfixed_index_);
+				if (dawg.label(dawg_child_index) == '\0')
+					units(da_index).set_has_leaf();
+				units(da_index).set_offset(offset);
+				return;
+			}
 		}
+
+		// Finds a good offset.
+		base_type offset = arrange_child_nodes(dawg, dawg_index, da_index);
+		offset_values[dawg_child_index] = offset;
+
+		// Builds a double-array in depth-first order.
+		do
+		{
+			base_type da_child_index =
+				offset ^ static_cast<uchar_type>(dawg.label(dawg_child_index));
+			build_double_array(dawg, offset_values,
+				dawg_child_index, da_child_index);
+			dawg_child_index = dawg.sibling(dawg_child_index);
+		} while (dawg_child_index);
+	}
+
+	// Arranges child nodes.
+	base_type arrange_child_nodes(const dawg_type &dawg,
+		base_type dawg_index, base_type da_index)
+	{
+		labels_.clear();
+
+		base_type dawg_child_index = dawg.child(dawg_index);
+		while (dawg_child_index)
+		{
+			labels_.push_back(
+				static_cast<uchar_type>(dawg.label(dawg_child_index)));
+			dawg_child_index = dawg.sibling(dawg_child_index);
+		}
+
+		// Finds a good offset.
+		base_type offset = find_offset(da_index);
+		units(da_index).set_offset(da_index ^ offset);
+
+		dawg_child_index = dawg.child(dawg_index);
+		for (size_type i = 0; i < labels_.size(); ++i)
+		{
+			base_type da_child_index = offset ^ labels_[i];
+			reserve_unit(da_child_index);
+
+			if (dawg.is_leaf(dawg_child_index))
+			{
+				units(da_index).set_has_leaf();
+				units(da_child_index).set_value(dawg.value(dawg_child_index));
+			}
+			else
+				units(da_child_index).set_label(labels_[i]);
+
+			dawg_child_index = dawg.sibling(dawg_child_index);
+		}
+		extras(offset).set_is_used();
+
+		return offset;
+	}
+
+private:
+	// Finds a good offset.
+	base_type find_offset(base_type index) const
+	{
+		if (unfixed_index_ >= num_of_units())
+			return num_of_units() | (index & 0xFF);
+
+		// Scans unused units to find a good offset.
+		base_type unfixed_index = unfixed_index_;
+		do
+		{
+			base_type offset = unfixed_index ^ labels_[0];
+			if (is_good_offset(index, offset))
+				return offset;
+			unfixed_index = extras(unfixed_index).next();
+		} while (unfixed_index != unfixed_index_);
 
 		return num_of_units() | (index & 0xFF);
 	}
 
-	// Removes an empty unit from a circular linked list.
-	void reserve_index(base_type index)
+	// Checks if a given offset is valid or not.
+	bool is_good_offset(base_type index, base_type offset) const
+	{
+		static const base_type LOWER_MASK = unit_type::OFFSET_MAX - 1;
+		static const base_type UPPER_MASK = ~LOWER_MASK;
+
+		if (extras(offset).is_used())
+			return false;
+
+		base_type relative_offset = index ^ offset;
+		if ((relative_offset & LOWER_MASK) && (relative_offset & UPPER_MASK))
+			return false;
+
+		// Finds a collision.
+		for (size_type i = 1; i < labels_.size(); ++i)
+		{
+			if (extras(offset ^ labels_[i]).is_fixed())
+				return false;
+		}
+
+		return true;
+	}
+
+	// Reserves an unused unit.
+	void reserve_unit(base_type index)
 	{
 		if (index >= num_of_units())
-			expand_trie();
+			expand_double_array();
 
-		assert(!extras(index).is_fixed());
-
+		// Removes an unused unit from a circular linked list.
 		if (index == unfixed_index_)
 		{
 			unfixed_index_ = extras(index).next();
@@ -595,8 +977,8 @@ private:
 		extras(index).set_is_fixed();
 	}
 
-	// Expands a trie.
-	void expand_trie()
+	// Expands a double-array.
+	void expand_double_array()
 	{
 		base_type src_num_of_units = num_of_units();
 		base_type src_num_of_blocks = num_of_blocks();
@@ -611,7 +993,7 @@ private:
 		units_.resize(dest_num_of_units);
 		extras_.resize(dest_num_of_blocks, 0);
 
-		// Fixes old blocks or allocates memory.
+		// Allocates memory to a new block.
 		if (dest_num_of_blocks > NUM_OF_UNFIXED_BLOCKS)
 		{
 			base_type block_id = src_num_of_blocks - NUM_OF_UNFIXED_BLOCKS;
@@ -620,14 +1002,15 @@ private:
 				extras(i).clear();
 		}
 		else
-			extras_.back() = new std::vector<extra_type>(BLOCK_SIZE);
+			extras_.back() = new extra_type[BLOCK_SIZE];
 
-		// Creates a circular linked list of empty units.
+		// Creates a circular linked list for a new block.
 		for (base_type i = src_num_of_units + 1; i < dest_num_of_units; ++i)
 		{
 			extras(i - 1).set_next(i);
 			extras(i).set_prev(i - 1);
 		}
+
 		extras(src_num_of_units).set_prev(dest_num_of_units - 1);
 		extras(dest_num_of_units - 1).set_next(src_num_of_units);
 
@@ -651,239 +1034,187 @@ private:
 			fix_block(block_id);
 	}
 
-	// Adjusts labels of empty units in a given block.
+	// Adjusts labels of unused units in a given block.
 	void fix_block(base_type block_id)
 	{
-		assert(block_id < num_of_blocks());
-
 		base_type begin = block_id * BLOCK_SIZE;
 		base_type end = begin + BLOCK_SIZE;
 
-		// If a given block has no empty units, there is nothing to do.
-		if (unfixed_index_ >= end)
-			return;
-
 		// Finds an unused offset.
-		base_type unused_offset = 0;
+		base_type unused_offset_for_label = 0;
 		for (base_type offset = begin; offset != end; ++offset)
 		{
 			if (!extras(offset).is_used())
 			{
-				unused_offset = offset;
+				unused_offset_for_label = offset;
 				break;
 			}
 		}
 
-		assert(!extras(unused_offset).is_used());
-
-		// Adjusts labels of unused units.
-		while (unfixed_index_ < end)
+		// Labels of unused units are modified.
+		for (base_type index = begin; index != end; ++index)
 		{
-			base_type unfixed_index = unfixed_index_;
-
-			reserve_index(unfixed_index);
-			units(unfixed_index).set_label(
-				static_cast<uchar_type>(unfixed_index ^ unused_offset));
-
-			++num_of_unused_indices_;
+			if (!extras(index).is_fixed())
+			{
+				reserve_unit(index);
+				units(index).set_label(static_cast<uchar_type>(
+					index ^ unused_offset_for_label));
+				++num_of_unused_units_;
+			}
 		}
 	}
 
 private:
-	// Arranges suffixes so as to reduce memory usage.
-	void arrange_suffixes()
+	// Tests a given set of keys.
+	void test_keys() const
 	{
-		tail_index_ = sizeof(unit_type) * num_of_units();
-		if (keys_.empty())
+		for (size_type i = 0; i < num_of_keys_; ++i)
+		{
+			// Finds a null pointer.
+			if (!keys_[i])
+				THROW("null pointer in key set");
+
+			// Finds a null character.
+			if (lengths_)
+			{
+				if (!lengths_)
+					THROW("zero length key");
+
+				for (size_type j = 0; j < lengths_[i]; ++j)
+				{
+					if (!keys_[i][j])
+						THROW("null character in key");
+				}
+			} else if (!keys_[i][0])
+				THROW("zero length key");
+
+			// Finds a negative value.
+			if (values_ && values_[i] < 0)
+				THROW("negative value");
+
+			// Finds a wrong order.
+			if (i > 0)
+			{
+				int comparison_result = lengths_ ? compare_keys(
+					keys_[i - 1], lengths_[i - 1], keys_[i], lengths_[i])
+					: compare_keys(keys_[i - 1], keys_[i]);
+				if (comparison_result > 0)
+					THROW("invalid key order");
+			}
+		}
+	}
+
+	// Compares a pair of keys and returns a result like strcmp().
+	static int compare_keys(const char_type *lhs, const char_type *rhs)
+	{
+		while (*lhs != 0 && *lhs == *rhs)
+			++lhs, ++rhs;
+
+		return static_cast<uchar_type>(*lhs) - static_cast<uchar_type>(*rhs);
+	}
+	// Compares a pair of keys and returns a result like strcmp().
+	static int compare_keys(const char_type *lhs_key, size_type lhs_length,
+		const char_type *rhs_key, size_type rhs_length)
+	{
+		size_type min_length = std::min(lhs_length, rhs_length);
+		size_type key_pos = 0;
+
+		while (key_pos < min_length && lhs_key[key_pos] == rhs_key[key_pos])
+			++key_pos;
+
+		if (key_pos == min_length)
+			return static_cast<int>(lhs_length - rhs_length);
+		return static_cast<uchar_type>(lhs_key[key_pos])
+			- static_cast<uchar_type>(rhs_key[key_pos]);
+	}
+
+private:
+	// Accesses a unit.
+	unit_type &units(base_type index) { return units_[index]; }
+	// Accesses a unit.
+	const unit_type &units(base_type index) const { return units_[index]; }
+
+	// Accesses an extra information.
+	extra_type &extras(base_type index)
+	{ return extras_[index / BLOCK_SIZE][index % BLOCK_SIZE]; }
+	// Accesses an extra information.
+	const extra_type &extras(base_type index) const
+	{ return extras_[index / BLOCK_SIZE][index % BLOCK_SIZE]; }
+
+	// Number of units.
+	base_type num_of_units() const
+	{ return static_cast<base_type>(units_.size()); }
+	// Number of blocks.
+	base_type num_of_blocks() const
+	{ return static_cast<base_type>(extras_.size()); }
+
+private:
+	// Notifies a progress.
+	void progress()
+	{
+		if (progress_ >= max_progress_)
 			return;
 
-		// Sorts keys in suffix order.
-		std::stable_sort(keys_.begin(),
-			DoubleArraySwitcher<(VALUE_ID_BITS > 0)>()(
-				keys_.begin(), keys_.end()),
-			typename key_type::ReversedComparisonFunc());
-
-		base_type base_link = 0;
-		std::vector<value_type> values;
-
-		for (size_type i = 0; i < keys_.size(); ++i)
-		{
-			bool is_suffix = (i > 0) && keys_[i].is_suffix_of(keys_[i - 1]);
-			base_type value_id = 0;
-			if (is_suffix)
-			{
-				while (value_id < values.size()
-					&& values[value_id] != keys_[i].value())
-					++value_id;
-			}
-
-			// If the next suffix cannot be merged into the previous suffix.
-			if (!is_suffix || value_id >= unit_type::VALUE_ID_MAX)
-			{
-				base_link += static_cast<base_type>(
-					sizeof(value_type) * values.size());
-				base_link += keys_[i].length() + 1;
-
-				values.clear();
-				value_id = 0;
-
-				append_suffix(keys_[i]);
-			}
-
-			// Links a leaf unit to its suffix.
-			units(keys_[i].index()).set_value_id(value_id);
-			units(keys_[i].index()).set_link(
-				base_link - keys_[i].length() - 1);
-
-			// Appends a new value.
-			if (value_id == values.size())
-			{
-				values.push_back(keys_[i].value());
-				append_value(keys_[i].value());
-			}
-		}
+		++progress_;
+		if (progress_func_)
+			progress_func_(progress_, max_progress_);
 	}
 
-	// Appends a suffix into the end of a double-array.
-	void append_suffix(const key_type &key)
+	// Reads a byte from a key.
+	uchar_type keys(size_type key_id, size_type depth) const
 	{
-		base_type i = 0;
-		do
-			append_byte(key[i]);
-		while (key[i++]);
+		return (!lengths_ || lengths_[key_id] < depth)
+			? keys_[key_id][depth] : 0;
 	}
-
-	// Appends a value into the end of a double-array.
-	void append_value(value_type value)
-	{
-		const uchar_type *value_ptr = static_cast<const uchar_type *>(
-			static_cast<const void *>(&value));
-		for (size_type i = 0; i < sizeof(value); ++i)
-			append_byte(value_ptr[i]);
-	}
-
-	// Appends a byte into the end of a double-array.
-	void append_byte(uchar_type byte)
-	{
-		if (tail_index_ >= sizeof(unit_type) * num_of_units())
-			units_.resize(units_.size() + 1);
-
-		uchar_type *tail = static_cast<uchar_type *>(
-			static_cast<void *>(&units_[0]));
-		tail[tail_index_++] = byte;
-	}
-};
-
-// A query for a double-array.
-class DoubleArrayQuery : public DoubleArrayCommonTypes
-{
-public:
-	explicit DoubleArrayQuery(const char_type *key, size_type index = 0)
-		: key_(key), index_(index) {}
-
-	uchar_type operator *() const
-	{ return static_cast<uchar_type>(key_[index_]); }
-	DoubleArrayQuery &operator++() { ++index_; return *this; }
-
-	size_type index() const { return index_; }
-
-private:
-	const char_type *key_;
-	size_type index_;
-};
-
-// A query with its length for a double-array.
-class DoubleArrayLengthQuery : public DoubleArrayCommonTypes
-{
-public:
-	DoubleArrayLengthQuery(const char_type *key,
-		size_type length, size_type index = 0)
-		: key_(key), length_(length), index_(index) {}
-
-	uchar_type operator *() const
-	{ return (index_ != length_) ? static_cast<uchar_type>(key_[index_]) : 0; }
-	DoubleArrayLengthQuery &operator++() { ++index_; return *this; }
-
-	size_type index() const { return index_; }
-
-private:
-	const char_type *key_;
-	size_type length_;
-	size_type index_;
 };
 
 // The base class of the DoubleArray.
-template <typename ValueType, int IdBits>
-class DoubleArrayBase : public DoubleArrayCommonTypes
+template <typename ValueType>
+class DoubleArrayBase
 {
 public:
-	enum { VALUE_ID_BITS = IdBits };
+	// For compatibility.
+	typedef ValueType result_type;
 
-	typedef ValueType value_type;
-	typedef DoubleArrayUnit<VALUE_ID_BITS> unit_type;
+	typedef DoubleArrayBasicTypes::char_type char_type;
+	typedef DoubleArrayBasicTypes::uchar_type uchar_type;
+	typedef DoubleArrayBasicTypes::base_type base_type;
+	typedef DoubleArrayBasicTypes::size_type size_type;
+	typedef DoubleArrayBasicTypes::value_type value_type;
+
+	// For compatibility.
+	typedef char_type key_type;
+
 	typedef DoubleArrayFile file_type;
-	typedef DoubleArrayQuery query_type;
-	typedef DoubleArrayLengthQuery length_query_type;
+	typedef DoubleArrayUnit unit_type;
 
 	struct result_pair_type
 	{
-		value_type value;
+		result_type value;
 		size_type length;
 	};
 
-	// For compatibility.
-	typedef value_type result_type;
-
 private:
 	const unit_type *units_;
-	const uchar_type *tail_;
 	size_type size_;
 	std::vector<unit_type> units_buf_;
 
-	// Disables copies.
+	// Copies are not allowed.
 	DoubleArrayBase(const DoubleArrayBase &);
 	DoubleArrayBase &operator=(const DoubleArrayBase &);
 
 public:
-	DoubleArrayBase() : units_(0), tail_(0), size_(0), units_buf_() {}
+	DoubleArrayBase() : units_(0), size_(0), units_buf_() {}
 
-	// For compatibility (to handle default arguments).
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths = 0, const value_type *values = 0)
-	{
-		return build(num_of_keys, keys,
-			lengths, values, DefaultProgressFunc());
-	}
 	// Builds a double-array from a set of keys.
-	template <typename ProgressFunc>
 	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values,
-		ProgressFunc progress_func)
+		const size_type *lengths = 0, const result_type *values = 0,
+		int (*progress_func)(size_type, size_type) = 0)
 	{
-		build_double_array(num_of_keys, keys, lengths, values, progress_func);
-		return 0;
-	}
-	// For compatibility (to ignore an integer zero).
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values, int null_pointer)
-	{
-		if (null_pointer)
-			THROW("Invalid progress function");
-
-		return build(num_of_keys, keys, lengths, values,
-			DefaultProgressFunc());
-	}
-	// For compatibility (to ignore a null pointer).
-	template <typename ProgressFunc>
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values,
-		ProgressFunc *progress_func)
-	{
-		if (!progress_func)
-			return build(num_of_keys, keys, lengths, values);
-
-		build_double_array(
-			num_of_keys, keys, lengths, values, progress_func);
+		DoubleArrayBuilder builder;
+		if (!builder.build(num_of_keys, keys, lengths, values, progress_func))
+			return -1;
+		replace_units_buf(builder.units_buf());
 		return 0;
 	}
 
@@ -901,9 +1232,9 @@ public:
 	{
 		clear();
 		units_ = static_cast<const unit_type *>(ptr);
-		tail_ = static_cast<const uchar_type *>(
-			static_cast<const void *>(&units_[units_[1].offset()]));
 		size_ = size;
+
+		LOG_VALUE(total_size());
 	}
 	// Returns the start address of an array.
 	const void *array() const { return units_; }
@@ -912,7 +1243,6 @@ public:
 	void clear()
 	{
 		units_ = 0;
-		tail_ = 0;
 		size_ = 0;
 		std::vector<unit_type>(0).swap(units_buf_);
 	}
@@ -935,11 +1265,11 @@ public:
 			return -1;
 		size_type num_of_units = size / sizeof(unit_type);
 
-		std::vector<unit_type> new_units(num_of_units);
-		if (!file.read(&new_units[0], num_of_units))
+		std::vector<unit_type> new_units_buf(num_of_units);
+		if (!file.read(&new_units_buf[0], num_of_units))
 			return -1;
 
-		set_vector(new_units);
+		replace_units_buf(new_units_buf);
 		return 0;
 	}
 	// Saves a double-array to a file.
@@ -958,26 +1288,39 @@ public:
 public:
 	// Searches a double-array for a given key.
 	template <typename ResultType>
-	bool exactMatchSearch(const char_type *key, ResultType &result,
-		size_type length = 0, size_type agent = 0) const
-	{
-		if (!length)
-		{
-			return exact_match_search(query_type(key),
-				result, unit_type(static_cast<base_type>(agent)));
-		}
-
-		return exact_match_search(length_query_type(key, length),
-			result, unit_type(static_cast<base_type>(agent)));
-	}
+	void exactMatchSearch(const char_type *key, ResultType &result,
+		size_type length = 0, size_type node_pos = 0) const
+	{ result = exactMatchSearch<ResultType>(key, length, node_pos); }
 
 	// Searches a double-array for a given key.
 	template <typename ResultType>
 	ResultType exactMatchSearch(const char_type *key,
-		size_type length = 0, size_type agent = 0) const
+		size_type length = 0, size_type node_pos = 0) const
 	{
+		if (!length)
+			length = length_of(key);
+
 		ResultType result;
-		exactMatchSearch(key, result, length, agent);
+		set_result(result, -1, 0);
+
+		// Transitions.
+		base_type index = static_cast<base_type>(node_pos);
+		unit_type unit = units_[index];
+		size_type key_pos = 0;
+		while (key_pos < length)
+		{
+			index ^= unit.offset_if() ^ static_cast<uchar_type>(key[key_pos]);
+			unit = units_[index];
+			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+				return result;
+			++key_pos;
+		}
+
+		if (!unit.has_leaf())
+			return result;
+
+		unit = units_[index ^ unit.offset()];
+		set_result(result, unit.value(), key_pos);
 		return result;
 	}
 
@@ -985,291 +1328,102 @@ public:
 	template <typename ResultType>
 	size_type commonPrefixSearch(const char_type *key,
 		ResultType *results, size_type max_num_of_results,
-		size_type length = 0, size_type agent = 0) const
+		size_type length = 0, size_type node_pos = 0) const
 	{
 		if (!length)
-		{
-			return common_prefix_search(query_type(key), results,
-				max_num_of_results, unit_type(static_cast<base_type>(agent)));
-		}
+			length = length_of(key);
 
-		return common_prefix_search(length_query_type(key, length), results,
-			max_num_of_results, unit_type(static_cast<base_type>(agent)));
-	}
-
-	// Searches a double-array for a given key.
-	value_type traverse(const char_type *key, size_type &agent,
-		size_type &key_index, size_type length = 0) const
-	{
-		unit_type unit(static_cast<base_type>(agent));
-		value_type value;
-
-		if (!length)
-		{
-			query_type query(key, key_index);
-			value = traverse(query, unit);
-			key_index = query.index();
-		}
-		else
-		{
-			length_query_type length_query(key, length, key_index);
-			value = traverse(length_query, unit);
-			key_index = length_query.index();
-		}
-
-		agent = static_cast<size_type>(unit.values());
-		return value;
-	}
-
-private:
-	// Builds a double-array from a set of keys.
-	template <typename ProgressFunc>
-	void build_double_array(size_type num_of_keys,
-		const char_type * const *keys, const size_type *lengths,
-		const value_type *values, ProgressFunc progress_func)
-	{
-		typedef DoubleArrayKey<value_type> key_type;
-		typedef DoubleArrayBuilder<value_type, VALUE_ID_BITS, ProgressFunc>
-			builder_type;
-
-		if (num_of_keys > 0 && !keys)
-			THROW("Null pointer");
-
-		size_type key_count = 0;
-		std::vector<key_type> internal_keys(num_of_keys);
-		for (size_type i = 0; i < num_of_keys; ++i)
-		{
-			// Calculates lengths of keys if not provided.
-			internal_keys[key_count] = lengths
-				? key_type(keys[i], lengths[i]) : key_type(keys[i]);
-
-			// Keys must be sorted in dictionary order.
-			// Also, repeated keys are ignored.
-			if (key_count > 0)
-			{
-				int result = internal_keys[key_count - 1].compare(
-					internal_keys[key_count]);
-				if (!result)
-					continue;
-				else if (result > 0)
-					THROW("Unsorted keys");
-			}
-
-			// Uses indices as values if not provided.
-			internal_keys[key_count].set_value(
-				values ? values[i] : static_cast<value_type>(i));
-
-			++key_count;
-		}
-		internal_keys.resize(key_count);
-
-		// Builds a double-array.
-		std::vector<unit_type> new_units;
-		builder_type::build(internal_keys, new_units, progress_func);
-
-		assert(!new_units.empty());
-
-		// Deletes an old double-array.
-		set_vector(new_units);
-	}
-
-	// Sets a new vector.
-	void set_vector(std::vector<unit_type> &new_units)
-	{
-		set_array(&new_units[0], new_units.size());
-		units_buf_.swap(new_units);
-	}
-
-private:
-	// Searches a double-array for a given key.
-	template <typename QueryType, typename ResultType>
-	bool exact_match_search(QueryType query,
-		ResultType &result, unit_type agent) const
-	{
-		set_result_value(result, static_cast<value_type>(-1));
-
-		if (!agent.is_leaf())
-		{
-			// Searches a leaf unit.
-			for (base_type index = agent.index(); ; ++query)
-			{
-				index ^= units_[index].offset() ^ *query;
-				if (units_[index].is_leaf())
-				{
-					agent = units_[index];
-					break;
-				}
-				else if (units_[index].label() != *query)
-					return false;
-			}
-		}
-
-		// Compares suffixes.
-		for (const uchar_type *tail = &tail_[agent.link()];
-			*tail == *query; ++tail, ++query)
-		{
-			if (*tail == 0)
-			{
-				tail += sizeof(value_type) * agent.value_id() + 1;
-				set_result(result, tail, query.index());
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	// Searches a double-array for prefixes of a given key.
-	template <typename QueryType, typename ResultType>
-	size_type common_prefix_search(QueryType query, ResultType *results,
-		size_type max_num_of_results, unit_type agent) const
-	{
 		size_type num_of_results = 0;
 
-		if (!agent.is_leaf())
+		// Transitions.
+		base_type index = static_cast<base_type>(node_pos);
+		unit_type unit = units_[index];
+		for (size_type key_pos = 0; key_pos < length; ++key_pos)
 		{
-			// Searches a leaf unit.
-			for (base_type index = agent.index(); ; ++query)
-			{
-				// Extracts a prefix.
-				if (*query != 0 && units_[index].is_end())
-				{
-					unit_type stray = units_[index ^ units_[index].offset()];
-					const uchar_type *tail = &tail_[stray.link()];
-					tail += sizeof(value_type) * stray.value_id() + 1;
-					if (num_of_results < max_num_of_results)
-					{
-						set_result(
-							results[num_of_results], tail, query.index());
-					}
-					++num_of_results;
-				}
+			index ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
+			unit = units_[index];
+			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+				break;
 
-				index ^= units_[index].offset() ^ *query;
-				if (units_[index].is_leaf())
-				{
-					agent = units_[index];
-					break;
-				}
-				else if (units_[index].label() != *query)
-					return num_of_results;
-			}
-		}
+			if (!unit.has_leaf())
+				continue;
 
-		// Compares suffixes.
-		const uchar_type *tail = &tail_[agent.link()];
-		if (*tail != *query)
-			return num_of_results;
-
-		while (*tail != 0 && *tail == *query)
-			++tail, ++query;
-
-		if (*tail == 0)
-		{
-			tail += sizeof(value_type) * agent.value_id() + 1;
 			if (num_of_results < max_num_of_results)
-				set_result(results[num_of_results], tail, query.index());
+			{
+				unit_type stray = units_[index ^ unit.offset()];
+				set_result(results[num_of_results],
+					stray.value(), key_pos + 1);
+			}
 			++num_of_results;
 		}
 
 		return num_of_results;
 	}
 
-	// Traverses a minimal prefix trie.
-	template <typename QueryType>
-	value_type traverse(QueryType &query, unit_type &agent) const
+	// Searches a double-array for a given key.
+	value_type traverse(const char_type *key, size_type &node_pos,
+		size_type &key_pos, size_type length = 0) const
 	{
-		if (!agent.is_leaf())
+		if (!length)
+			length = length_of(key);
+
+		// Transitions.
+		base_type index = static_cast<base_type>(node_pos);
+		unit_type unit = units_[index];
+		for ( ; key_pos < length; ++key_pos)
 		{
-			// Searches a leaf unit.
-			base_type index = agent.index();
-			for ( ; *query != 0; ++query)
-			{
-				index ^= units_[index].offset() ^ *query;
-				if (units_[index].is_leaf())
-					break;
-				else if (units_[index].label() != *query)
-					return static_cast<value_type>(-2);
-				agent.set_index(index);
-			}
+			index ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
+			unit = units_[index];
+			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+				return static_cast<value_type>(-2);
 
-			// Checks a transition with a null character.
-			if (*query == 0)
-			{
-				if (!units_[index].is_end())
-					return static_cast<value_type>(-1);
-
-				unit_type stray = units_[index ^ units_[index].offset()];
-				const uchar_type *tail = &tail_[stray.link()];
-
-				tail += sizeof(value_type) * stray.value_id() + 1;
-				return get_value(tail);
-			}
-			agent = units_[index];
+			node_pos = static_cast<size_type>(index);
 		}
 
-		// Compares suffixes.
-		const uchar_type *tail = &tail_[agent.link()];
-		for ( ; *tail == *query; ++tail, ++query)
-		{
-			if (*tail == 0)
-			{
-				agent.set_link(static_cast<base_type>(tail - tail_));
-				tail += sizeof(value_type) * agent.value_id() + 1;
-				return get_value(tail);
-			}
-		}
-
-		agent.set_link(static_cast<base_type>(tail - tail_));
-		if (*query == 0)
+		if (!unit.has_leaf())
 			return static_cast<value_type>(-1);
-		return static_cast<value_type>(-2);
+
+		unit = units_[index ^ unit.offset()];
+		return unit.value();
 	}
 
-	// Gets a result.
-	value_type get_value(const uchar_type *tail) const
+private:
+	// Replaces a current vector with a given vector.
+	void replace_units_buf(std::vector<unit_type> &new_units_buf)
 	{
-		value_type value;
-		set_result_value(value, tail);
-		return value;
+		if (new_units_buf.empty())
+			THROW("empty unit vector");
+
+		set_array(&new_units_buf[0], new_units_buf.size());
+		units_buf_.swap(new_units_buf);
 	}
 
-	// Sets a result.
-	template <typename ResultType>
-	static void set_result(ResultType &result,
-		const uchar_type *tail, size_type length)
+	// Scans a given key and returns its length.
+	static size_type length_of(const char_type *key)
 	{
-		set_result_value(result, tail);
-		set_result_length(result, length);
+		size_type count = 0;
+		while (key[count])
+			++count;
+		return count;
 	}
 
-	static void set_result_value(value_type &result, value_type value)
-	{ result = value; }
-	static void set_result_value(result_pair_type &result, value_type value)
-	{ result.value = value; }
-	static void set_result_value(value_type &result, const uchar_type *tail)
+	// Sets a result value.
+	static void set_result(result_type &result, value_type value, size_type)
+	{ result = static_cast<result_type>(value); }
+	// Sets a result pair.
+	static void set_result(result_pair_type &result,
+		value_type value, size_type length)
 	{
-		uchar_type *value =
-			static_cast<uchar_type *>(static_cast<void *>(&result));
-		for (size_type i = 0; i < sizeof(value_type); ++i)
-			value[i] = tail[i];
+		result.value = value;
+		result.length = length;
 	}
-	static void set_result_value(result_pair_type &result,
-		const uchar_type *tail) { set_result_value(result.value, tail); }
-
-	static void set_result_length(value_type &, size_type) {}
-	static void set_result_length(result_pair_type &result, size_type length)
-	{ result.length = length; }
 };
 
-// Suffixes are stored after sorting.
-typedef DoubleArrayBase<int, 3> DoubleArray;
-// Suffixes are stored in their original order.
-typedef DoubleArrayBase<int, 0> HugeDoubleArray;
+typedef DoubleArrayBase<int> DoubleArray;
 
 // For chasen.
-template <typename A, typename B, typename ResultType, typename D>
-class DoubleArrayImpl : public DoubleArrayBase<ResultType, 3> {};
+template <typename A, typename B, typename ValueType, typename D>
+class DoubleArrayImpl : public DoubleArrayBase<ValueType> {};
 
 }  // namespace Darts
 
@@ -1277,5 +1431,8 @@ class DoubleArrayImpl : public DoubleArrayBase<ResultType, 3> {};
 #undef THROW
 #undef THROW_RELAY
 #undef THROW_FINAL
+
+#undef LOG
+#undef LOG_VALUE
 
 #endif  // DARTS_H_
