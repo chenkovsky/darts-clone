@@ -1,8 +1,3 @@
-// A clone of the Darts (Double-ARray Trie System)
-//
-// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
-// All rights reserved.
-
 #include "darts-clone.h"
 
 #include <ctime>
@@ -247,8 +242,6 @@ const double MIN_TEST_SEC = 5.0;
 template <typename DoubleArray>
 bool test_build(DoubleArray &da, const vector<const char *> &keys)
 {
-//	vector<int> values(keys.size(), 0);
-
 	time_recorder timer;
 	for (int i = 0; i < MIN_TEST_TIMES || timer.total() < MIN_TEST_SEC; ++i)
 	{
@@ -258,7 +251,6 @@ bool test_build(DoubleArray &da, const vector<const char *> &keys)
 		da.clear();
 		try
 		{
-//			if (da.build(keys.size(), &keys[0], 0, &values[0]) != 0)
 			if (da.build(keys.size(), &keys[0]) != 0)
 				return false;
 		}

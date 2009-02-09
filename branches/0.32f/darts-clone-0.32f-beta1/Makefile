@@ -1,6 +1,5 @@
 CC = g++
 CFLAGS = -Wall -O3
-#CFLAGS = -Wall -O3 -D_DEBUG
 
 MKDARTS_SRCS = mkdarts-clone.cpp
 MKDARTS_OBJS = $(MKDARTS_SRCS:.cpp=.o)

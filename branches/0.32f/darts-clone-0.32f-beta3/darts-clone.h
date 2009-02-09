@@ -53,6 +53,10 @@ public:
 	// Must be a 32-bit signed integer type.
 	typedef int value_type;
 
+	// For compatibility.
+	typedef char_type key_type;
+	typedef value_type result_type;
+
 private:
 	// No objects.
 	DoubleArrayBasicTypes();
@@ -555,10 +559,7 @@ public:
 	typedef DoubleArrayBasicTypes::base_type base_type;
 	typedef DoubleArrayBasicTypes::value_type value_type;
 
-	static const base_type OFFSET_MAX = static_cast<base_type>(1) << 21;
-	static const base_type IS_LEAF_BIT = static_cast<base_type>(1) << 31;
-	static const base_type HAS_LEAF_BIT = static_cast<base_type>(1) << 8;
-	static const base_type EXTENSION_BIT = static_cast<base_type>(1) << 9;
+	static const base_type OFFSET_MAX = static_cast<base_type>(1) << 22;
 
 private:
 	base_type base_;
@@ -566,40 +567,38 @@ private:
 public:
 	DoubleArrayUnit() : base_(0) {}
 
-	// Sets a flag to show that a unit has a leaf as a child.
-	void set_has_leaf() { base_ |= HAS_LEAF_BIT; }
 	// Sets a value to a leaf unit.
 	void set_value(value_type value)
-	{ base_ = static_cast<base_type>(value) | IS_LEAF_BIT; }
+	{ base_ = (static_cast<base_type>(value) << 1) | 1; }
 	// Sets a label to a non-leaf unit.
 	void set_label(uchar_type label)
-	{ base_ = (base_ & ~static_cast<base_type>(0xFF)) | label; }
+	{
+		base_ &= ~static_cast<base_type>(0x1FE);
+		base_ |= label << 1;
+	}
 	// Sets an offset to a non-leaf unit.
 	void set_offset(base_type offset)
 	{
 		if (offset >= (OFFSET_MAX << 8))
 			THROW("too large offset");
 
-		base_ &= IS_LEAF_BIT | HAS_LEAF_BIT | 0xFF;
+		base_ &= 0x1FF;
 		if (offset < OFFSET_MAX)
-			base_ |= (offset << 10);
+			base_ |= offset << 10;
 		else
-			base_ |= (offset << 2) | EXTENSION_BIT;
+			base_ |= (offset << 2) | 0x200;
 	}
 
-	// Checks if a unit has a leaf as a child or not.
-	bool has_leaf() const { return (base_ & HAS_LEAF_BIT) ? true : false; }
 	// Checks if a unit corresponds to a leaf or not.
-	value_type value() const
-	{ return static_cast<value_type>(base_ & ~IS_LEAF_BIT); }
-	// Reads a label with a leaf flag from a non-leaf unit.
-	base_type label() const { return base_ & (IS_LEAF_BIT | 0xFF); }
+	bool is_leaf() const { return (base_ & 1) ? true : false; }
+	// Reads a value from a leaf unit.
+	value_type value() const { return static_cast<value_type>(base_ >> 1); }
+	// Reads a label from a non-leaf unit.
+	uchar_type label() const
+	{ return static_cast<uchar_type>((base_ >> 1) & 0xFF); }
 	// Reads an offset to child units from a non-leaf unit.
 	base_type offset() const
-	{ return (base_ >> 10) << ((base_ & EXTENSION_BIT) >> 6); }
-	// Reads an offset to child units from a non-leaf unit by using if.
-	base_type offset_if() const
-	{ return (base_ & EXTENSION_BIT) ? ((base_ >> 10) << 8) : (base_ >> 10); }
+	{ return (base_ >> 10) << ((base_ >> 6) & 8); }
 };
 
 // An extra information which are used for building a double-array.
@@ -765,9 +764,6 @@ private:
 			labels_.push_back(keys(child_begin, range.depth()));
 			for (size_type i = range.begin() + 1; i != range.end(); ++i)
 			{
-				if (!labels_.back())
-					progress();
-
 				if (keys(i, range.depth()) != labels_.back())
 				{
 					labels_.push_back(keys(i, range.depth()));
@@ -776,8 +772,6 @@ private:
 					child_begin = i;
 				}
 			}
-			if (!labels_.back())
-				progress();
 			child_ranges.push_back(
 				range_type(child_begin, range.end(), range.depth() + 1));
 
@@ -794,9 +788,9 @@ private:
 				if (!labels_[i])
 				{
 					// Sets a value for a leaf unit.
-					units(range.index()).set_has_leaf();
 					units(child).set_value(values_ ? values_[range.begin() + i]
 						: static_cast<value_type>(range.begin() + i));
+					progress();
 				}
 				else
 				{
@@ -855,8 +849,6 @@ private:
 			base_type offset = offset_values[dawg_child_index] ^ da_index;
 			if (!(offset & LOWER_MASK) || !(offset & UPPER_MASK))
 			{
-				if (dawg.label(dawg_child_index) == '\0')
-					units(da_index).set_has_leaf();
 				units(da_index).set_offset(offset);
 				return;
 			}
@@ -902,10 +894,7 @@ private:
 			reserve_unit(da_child_index);
 
 			if (dawg.is_leaf(dawg_child_index))
-			{
-				units(da_index).set_has_leaf();
 				units(da_child_index).set_value(dawg.value(dawg_child_index));
-			}
 			else
 				units(da_child_index).set_label(labels_[i]);
 
@@ -1169,28 +1158,22 @@ private:
 };
 
 // The base class of the DoubleArray.
-template <typename ValueType>
-class DoubleArrayBase
+class DoubleArray
 {
 public:
-	// For compatibility.
-	typedef ValueType result_type;
-
 	typedef DoubleArrayBasicTypes::char_type char_type;
 	typedef DoubleArrayBasicTypes::uchar_type uchar_type;
 	typedef DoubleArrayBasicTypes::base_type base_type;
 	typedef DoubleArrayBasicTypes::size_type size_type;
 	typedef DoubleArrayBasicTypes::value_type value_type;
-
-	// For compatibility.
-	typedef char_type key_type;
+	typedef DoubleArrayBasicTypes::result_type result_type;
 
 	typedef DoubleArrayFile file_type;
 	typedef DoubleArrayUnit unit_type;
 
 	struct result_pair_type
 	{
-		result_type value;
+		value_type value;
 		size_type length;
 	};
 
@@ -1200,15 +1183,15 @@ private:
 	std::vector<unit_type> units_buf_;
 
 	// Copies are not allowed.
-	DoubleArrayBase(const DoubleArrayBase &);
-	DoubleArrayBase &operator=(const DoubleArrayBase &);
+	DoubleArray(const DoubleArray &);
+	DoubleArray &operator=(const DoubleArray &);
 
 public:
-	DoubleArrayBase() : units_(0), size_(0), units_buf_() {}
+	DoubleArray() : units_(0), size_(0), units_buf_() {}
 
 	// Builds a double-array from a set of keys.
 	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths = 0, const result_type *values = 0,
+		const size_type *lengths = 0, const value_type *values = 0,
 		int (*progress_func)(size_type, size_type) = 0)
 	{
 		DoubleArrayBuilder builder;
@@ -1309,17 +1292,18 @@ public:
 		size_type key_pos = 0;
 		while (key_pos < length)
 		{
-			index ^= unit.offset_if() ^ static_cast<uchar_type>(key[key_pos]);
+			index ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
 			unit = units_[index];
-			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+			if (unit.is_leaf() || unit.label()
+				!= static_cast<uchar_type>(key[key_pos]))
 				return result;
 			++key_pos;
 		}
 
-		if (!unit.has_leaf())
+		unit = units_[index ^ unit.offset()];
+		if (!unit.is_leaf())
 			return result;
 
-		unit = units_[index ^ unit.offset()];
 		set_result(result, unit.value(), key_pos);
 		return result;
 	}
@@ -1342,19 +1326,20 @@ public:
 		{
 			index ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
 			unit = units_[index];
-			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+			if (unit.is_leaf() || unit.label()
+				!= static_cast<uchar_type>(key[key_pos]))
 				break;
 
-			if (!unit.has_leaf())
-				continue;
-
-			if (num_of_results < max_num_of_results)
+			const unit_type stray = units_[index ^ unit.offset()];
+			if (stray.is_leaf())
 			{
-				unit_type stray = units_[index ^ unit.offset()];
-				set_result(results[num_of_results],
-					stray.value(), key_pos + 1);
+				if (num_of_results < max_num_of_results)
+				{
+					set_result(results[num_of_results],
+						stray.value(), key_pos + 1);
+				}
+				++num_of_results;
 			}
-			++num_of_results;
 		}
 
 		return num_of_results;
@@ -1374,17 +1359,18 @@ public:
 		{
 			index ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
 			unit = units_[index];
-			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
+			if (unit.is_leaf() || unit.label()
+				!= static_cast<uchar_type>(key[key_pos]))
 				return static_cast<value_type>(-2);
 
 			node_pos = static_cast<size_type>(index);
 		}
 
-		if (!unit.has_leaf())
-			return static_cast<value_type>(-1);
-
 		unit = units_[index ^ unit.offset()];
-		return unit.value();
+		if (unit.is_leaf())
+			return unit.value();
+
+		return static_cast<value_type>(-1);
 	}
 
 private:
@@ -1408,8 +1394,9 @@ private:
 	}
 
 	// Sets a result value.
-	static void set_result(result_type &result, value_type value, size_type)
-	{ result = static_cast<result_type>(value); }
+	template <typename ResultType>
+	static void set_result(ResultType &result, value_type value, size_type)
+	{ result = static_cast<ResultType>(value); }
 	// Sets a result pair.
 	static void set_result(result_pair_type &result,
 		value_type value, size_type length)
@@ -1419,11 +1406,9 @@ private:
 	}
 };
 
-typedef DoubleArrayBase<int> DoubleArray;
-
 // For chasen.
-template <typename A, typename B, typename ValueType, typename D>
-class DoubleArrayImpl : public DoubleArrayBase<ValueType> {};
+template <typename A, typename B, typename C, typename D>
+class DoubleArrayImpl : public DoubleArray {};
 
 }  // namespace Darts
 

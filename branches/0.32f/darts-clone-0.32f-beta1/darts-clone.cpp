@@ -1,6 +1,6 @@
 // A clone of the Darts (Double-ARray Trie System)
 //
-// Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
+// Copyright (C) 2008 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
 #include "darts-clone.h"
@@ -11,16 +11,17 @@
 
 using namespace std;
 
+template <typename Dictionary>
 int darts(const string &index_file_path)
 {
-	Darts::DoubleArray da;
+	Dictionary da;
 	if (da.open(index_file_path.c_str()))
 	{
 		cerr << "Error: cannot open: " << index_file_path << endl;
 		return 1;
 	}
 
-	vector<Darts::DoubleArray::result_pair_type> result_pairs(1024);
+	vector<typename Dictionary::result_pair_type> result_pairs(1024);
 
 	string line;
 	while (getline(cin, line))
@@ -42,6 +43,11 @@ int darts(const string &index_file_path)
 	}
 
 	return 0;
+}
+
+int darts(const string &index_file_path)
+{
+	return darts<Darts::DoubleArray>(index_file_path);
 }
 
 int main(int argc, char **argv)
