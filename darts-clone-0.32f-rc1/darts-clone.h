@@ -1212,7 +1212,8 @@ public:
 		int (*progress_func)(size_type, size_type) = 0)
 	{
 		DoubleArrayBuilder builder;
-		if (!builder.build(num_of_keys, keys, lengths, values, progress_func))
+		if (!builder.build(num_of_keys, keys, lengths,
+			reinterpret_cast<const value_type *>(values), progress_func))
 			return -1;
 		replace_units_buf(builder.units_buf());
 		return 0;
