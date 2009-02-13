@@ -19,7 +19,7 @@ Darts clone を !MeCab や !ChaSen で利用する方法を紹介します．
 mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
 これらのアーカイブは以下のサイトから入手できます．
 
- * MeCab: Yet Another Part-of-Speech and Morphological Analyzer
+ * !MeCab: Yet Another Part-of-Speech and Morphological Analyzer
   * http://mecab.sourceforge.net/
 
 辞書構築までの手順は以下の通りです．
@@ -68,9 +68,9 @@ sys.dic のサイズが 15% ほど削減されるにとどまりました．
 chasen-2.4.4 を Ubuntu 8.04 にインストールしました．
 以下のサイトを参考に，文字コードには UTF-8 を採用しています．
 
- * ChaSen -- 形態素解析器
+ * !ChaSen -- 形態素解析器
   * http://chasen-legacy.sourceforge.jp/
- * 「ChaSen」をUTF-8対応で導入
+ * 「!ChaSen」をUTF-8対応で導入
   * http://www.crimson-snow.net/hmsvr/centos/memo/chasen_utf8.html
 
 chasen-2.4.4 と ipadic-2.7.0 の組み合わせを
