@@ -1,0 +1,120 @@
+#summary 使用方法
+
+= 概要 =
+
+Darts clone を !MeCab や !ChaSen で利用する方法を紹介します．
+また，辞書サイズの比較を示します．
+
+ * !MeCab
+  * !MeCab で ipadic を用いた場合の辞書（sys.dic）
+ * !ChaSen
+  * !ChaSen で ipadic を用いた場合の辞書（chadic.da）
+
+= !MeCab =
+
+== 組み込み方法 ==
+
+!MeCab を Ubuntu 8.04 上でコンパイルしました．
+使用したのは，mecab-0.97.tar.gz と
+mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
+これらのアーカイブは以下のサイトから入手できます．
+
+ * MeCab: Yet Another Part-of-Speech and Morphological Analyzer
+  * http://mecab.sourceforge.net/
+
+辞書構築までの手順は以下の通りです．
+mecab-0.97.tar.gz に含まれる darts.h を darts-clone.h により置き換えました．
+
+ # tar zxvf mecab-0.97.tar.gz
+ # cd mecab-0.97
+ # ./configure
+ # make
+ # make check
+ # sudo make install
+ # cd ..
+ # tar zxvf mecab-ipadic-2.7.0-20070801.tar.gz
+ # cd mecab-ipadic-2.7.0-20070801
+ # ./configure
+ # /usr/local/libexec/mecab/mecab-dict-index -d . -o . -f EUC-JP -t 文字コード
+
+== 辞書サイズの比較 ==
+
+辞書（sys.dic）のサイズは以下のようになりました．
+品詞や読みに割り当てられている領域の方がずっと大きいようで，
+全体から見ると大して効果はありません．
+Darts-clone 0.32e を用いた場合でも，
+sys.dic のサイズが 15% ほど削減されるにとどまりました．
+
+|| *文字コード* || *Darts* || *Darts clone 0.32e* || *Darts clone 0.32f* ||
+||sjis||37,638,335||32,240,203||33,083,199||
+||euc||37,779,919||32,251,611||33,016,639||
+||utf8||49,199,027||41,599,907||43,197,595||
+
+このままでは悲しいので，分かち書き用の辞書も構築してみました．
+品詞などがなくなったおかげで，少し嬉しい結果になっています．
+
+|| *文字コード* || *Darts* || *Darts clone 0.32e* || *Darts clone 0.32f* ||
+||sjis||15,132,073||9,733,941||10,510,377||
+||euc||15,273,657||9,745,349||10,576,937||
+||utf8||17,700,673||10,101,553||11,699,241||
+
+※ 分かち書き用の辞書は mecab-dict-index に
+-w オプションを与えることで構築できます．
+
+= !ChaSen =
+
+== 組み込み方法 ==
+
+chasen-2.4.4 を Ubuntu 8.04 にインストールしました．
+以下のサイトを参考に，文字コードには UTF-8 を採用しています．
+
+ * ChaSen -- 形態素解析器
+  * http://chasen-legacy.sourceforge.jp/
+ * 「ChaSen」をUTF-8対応で導入
+  * http://www.crimson-snow.net/hmsvr/centos/memo/chasen_utf8.html
+
+chasen-2.4.4 と ipadic-2.7.0 の組み合わせを
+インストールしたときの手順を以下に示します．
+
+ # tar zxvf chasen-2.4.4.tar.gz
+ # cd chasen-2.4.4
+ # ./configure
+ # make
+ # make check
+ # sudo make install
+ # sudo vi /etc/ld.so.conf
+{{{
+/usr/local/lib # この一行を追加
+}}}
+ # sudo ldconfig
+ # cd ..
+ # tar zxvf ipadic-2.7.0.tar.gz
+ # cd ipadic-2.7.0
+ # ./configure
+ # vi conv_utf-8.sh
+{{{
+#! /bin/sh
+for file in $*
+do
+  if [ -f $file ]; then
+    iconv -f euc-jp -t utf-8 $file > tmpfile
+    mv tmpfile $file
+  fi
+done
+exit
+}}}
+ # chmod +x conv_utf-8.sh
+ # ./conv_utf-8.sh `*`.dic `*`.cha
+ # {{{`chasen-config --mkchadic`/makemat}}} -i w
+ # {{{`chasen-config --mkchadic`/makeda}}} -i w chadic `*`.dic
+ # sudo make install
+
+== 辞書サイズの比較 ==
+
+ipadic-2.7.0 から構築される辞書（chadic.da）のサイズを調査しました．
+chadic.da 以外のファイルは合計 20MB 程度なため，
+Darts clone 0.32e を用いた場合では，
+全体の 1/4 弱が削減されたことになります．
+
+|| *文字コード* || *Darts* || *Darts clone 0.32e* || *Darts clone 0.32f* ||
+||utf8||11,432,440||3,829,056||5,426,176||

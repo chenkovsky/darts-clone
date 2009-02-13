@@ -1,4 +1,4 @@
-#summary Darts clone のインタフェース．
+#summary Darts clone のインタフェース
 #labels Phase-Design
 
 = はじめに =
@@ -7,20 +7,20 @@ Darts および Darts clone は，
 それぞれ単一の C++ ヘッダファイルとして提供されます．
 そのため，提供されているヘッダを include するだけで利用できます．
 各ヘッダはテンプレートクラスを提供するとともに，
-一般的な設定に対する別名 Darts::DoubleArray を提供します．
+一般的な設定に対する別名 Darts::!DoubleArray を提供します．
 
-Darts::DoubleArray の基本的な機能のみを利用する場合，
+Darts::!DoubleArray の基本的な機能のみを利用する場合，
 Darts と Darts clone のインタフェースはとても似ています．
 ただし，基礎となっているクラスには，いくつかの違いがあります．
 以下，Darts clone が提供するクラスについて説明します．
 
 == 通常の利用方法 ==
 
-Darts と同様に，通常は Darts::DoubleArray を使用します．
-ただし，非常に大規模なキー集合を扱う場合，
-Darts::HugeDoubleArray を使用する必要があるかもしれません．
+Darts と同様に，通常は Darts::!DoubleArray を使用します．
+ただし，Darts clone 0.32e で非常に大規模なキー集合を扱う場合，
+Darts::!HugeDoubleArray を使用する必要があるかもしれません．
 キー数が 3000 万件を超える状況や長いキーを大量に扱う状況では，
-Darts::HugeDoubleArray の使用を検討してください．
+Darts::!HugeDoubleArray の使用を検討してください．
 
 {{{
 namespace Darts {
@@ -33,9 +33,9 @@ typedef Darts::DoubleArrayImpl<int, 0> HugeDoubleArray;
 
 = 基本クラス =
 
-Darts::DoubleArray や Darts::HugeDoubleArray は
-Darts::DoubleArrayBase のインスタンスに対する別名であり，
-すべての機能は Darts::DoubleArrayBase により提供されています．
+Darts::!DoubleArray や Darts::!HugeDoubleArray は
+Darts::!DoubleArrayBase のインスタンスに対する別名であり，
+すべての機能は Darts::!DoubleArrayBase により提供されています．
 
 {{{
 namespace Darts {
@@ -64,20 +64,8 @@ public:
 	~DoubleArrayBase();
 
 	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths = 0, const value_type *values = 0);
-	template <typename ProgressFunc>
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values,
-		ProgressFunc progress_func);
-
-	// For compatibility (to ignore an integer zero).
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values, int null_pointer);
-	// For compatibility (to ignore a null pointer).
-	template <typename ProgressFunc>
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths, const value_type *values,
-		ProgressFunc *progress_func);
+		const size_type *lengths = 0, const value_type *values = 0,
+		int (*progress_func)(size_type, size_type) = 0);
 
 	size_type size() const;
 	size_type unit_size() const;
@@ -95,7 +83,7 @@ public:
 		size_type offset = 0) const;
 
 	template <typename ResultType>
-	bool exactMatchSearch(const char_type *key, ResultType &result,
+	void exactMatchSearch(const char_type *key, ResultType &result,
 		size_type length = 0, size_type agent = 0) const;
 	template <typename ResultType>
 	ResultType exactMatchSearch(const char_type *key,
@@ -116,9 +104,9 @@ public:
 == 基本クラスのテンプレート引数 ==
 
 Darts と Darts clone では，基本クラスの名前から異なります．
-Darts が Darts::DoubleArrayImpl を用いるのに対し，
-Darts clone では Darts::DoubleArrayBase を使用します．
-Darts::DoubleArrayBase のテンプレート引数については，
+Darts が Darts::!DoubleArrayImpl を用いるのに対し，
+Darts clone では Darts::!DoubleArrayBase を使用します．
+Darts::!DoubleArrayBase のテンプレート引数については，
 以下の表を参考にしてください．
 
 || *引数名* || *別名* || *説明* ||
@@ -127,11 +115,11 @@ Darts::DoubleArrayBase のテンプレート引数については，
 
 == 基本クラスの提供する型 ==
 
-基本クラス Darts::DoubleArrayBase は，検索結果を受け取るためのクラス
-Darts::DoubleArrayBase::result_pair_type を提供します．
+基本クラス Darts::!DoubleArrayBase は，検索結果を受け取るためのクラス
+Darts::!DoubleArrayBase::result_pair_type を提供します．
 メソッド exactMatchSearch() および commonPrefixSearch() では，
-Darts::DoubleArrayBase::value_type と Darts::DoubleArrayImpl::result_pair_type
-の両方を同じように扱えます．
+Darts::!DoubleArrayBase::value_type と
+Darts::!DoubleArrayImpl::result_pair_type の両方を同じように扱えます．
 
 {{{
 struct result_pair_type {
@@ -149,37 +137,27 @@ length には一致したキーの長さが格納されます．
 
 == 基本クラスのメソッド ==
 
-基本的に本家の Darts::DoubleArrayImpl と同じように振舞います．
+基本的に Darts の Darts::!DoubleArrayImpl と同じように振舞います．
 多くのメソッドは，成功すれば 0，失敗すれば -1 を返すように設計されています．
 
 === 構築用のメソッド ===
 
 {{{
-DoubleArrayImpl();
+DoubleArrayBase();
 }}}
 
 オブジェクトを初期化します．
 
 {{{
 int build(size_type num_of_keys, const char_type * const *keys,
-	const size_type *lengths = 0, const value_type *values = 0)
-}}}
-
-引数の省略を許容するために用意されたメソッドです．
-次のメソッド build() を呼び出すだけであり，特に意識する必要はありません．
-
-{{{
-template <typename ProgressFunc>
-int build(size_type num_of_keys, const char_type * const *keys,
-	const size_type *lengths, const value_type *values,
-	ProgressFunc progress_func);
+	const size_type *lengths = 0, const value_type *values = 0,
+	int (*progress_func)(size_type, size_type) = 0);
 }}}
 
 num_of_keys に登録するキー数，keys には各キーへのポインタの配列，
 lengths には各キーの長さの配列，
 values には各キーに関連付ける値の配列を指定します．
-progress_func には，
-構築状況の表示に用いる関数もしくは関数オブジェクトを指定します．
+progress_func には，構築状況の表示に用いる関数を指定します．
 
 キーは辞書順に整列されている必要があります．
 values は負の値であっても構いません．
@@ -188,35 +166,9 @@ values は負の値であっても構いません．
 lengths, values, progress_func は省略可能です．
 lengths を省略すると，0 が出現するまでの長さが採用されます．
 values を省略すると，各キーにはキーのインデックスが関連付けられます．
-progress_func を省略すると，何もしない関数オブジェクトを採用します．
 
 表示関数 progress_func には，2 つの size_type 型の整数が引数として渡されます．
-1 つ目は構築できたキーの数，2 つ目は全体のキー数です．
-
-{{{
-int build(size_type num_of_keys, const char_type * const *keys,
-	const size_type *lengths, const value_type *values, int null_pointer)
-}}}
-
-従来のインタフェースでは関数ポインタを受け取るように設計されていたため，
-NULL ポインタの代わりに整数 0 を渡される可能性があります．
-そのような場合でも正しく処理をおこなうために用意されたメソッドです．
-
-0 が与えられたときは，
-デフォルトの関数オブジェクトを使用してダブル配列の構築をおこないます．
-0 以外の整数が与えられたときはエラー扱いになります．
-
-{{{
-template <typename ProgressFunc>
-int build(size_type num_of_keys, const char_type * const *keys,
-	const size_type *lengths, const value_type *values,
-	ProgressFunc *progress_func)
-}}}
-
-NULL ポインタを関数ポインタとして受け取るためのメソッドです．
-NULL ポインタが与えられたときは，
-デフォルトの関数オブジェクトを使用してダブル配列の構築をおこないます．
-それ以外の場合，与えられた関数ポインタを使用します．
+1 つ目が進捗，2 つ目が全体を表します．
 
 === ファイル入出力用のメソッド ===
 
@@ -246,7 +198,7 @@ offset を指定すると，ファイルの先頭 offset バイトをスキッ�
 
 {{{
 template <typename ResultType>
-bool exactMatchSearch(const char_type *key, ResultType &result,
+void exactMatchSearch(const char_type *key, ResultType &result,
 	size_type length = 0, size_type agent = 0) const
 }}}
 
@@ -257,11 +209,14 @@ length には入力文字列の長さを指定します．
 length を省略すると，0 が出現するまでのバイト数が採用されます．
 agent には，traverse() により取得した検索位置を指定できます．
 
-ResultType には，Darts::DoubleArrayImpl::value_type と
-Darts::DoubleArrayImpl::result_pair_type を指定できます．
-value_type を指定すると，キーと対応する値のみを取得できます．
+!ResultType には，Darts::!DoubleArrayBase::result_type と
+Darts::!DoubleArrayBase::result_pair_type を指定できます．
+result_type を指定すると，キーと対応する値のみを取得できます．
 一方，result_pair_type を指定すると，
 キーと対応する値に加えて，一致したキーの長さを取得できます．
+
+入力文字列が登録されていなかった場合，
+本来はキーと対応する値を格納すべき箇所に -1 を格納します．
 
 {{{
 template <typename ResultType>
@@ -333,7 +288,7 @@ void set_array(const void *ptr, size_t = 0);
 ダブル配列の開始アドレスを指定します．
 array() により取得した配列を保存したファイルに対して
 mmap() を用いる場合などに使えます．
-Darts::DoubleArrayBase は，受け取ったメモリを複製したり管理したりしません．
+Darts clone は，受け取ったメモリを複製したり管理したりしません．
 
 {{{
 size_t size() const;
