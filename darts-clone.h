@@ -14,6 +14,7 @@
 #include <share.h>
 #endif  // _MSC_VER
 
+#include <algorithm>
 #include <cstdio>
 #include <exception>
 #include <stack>
@@ -226,11 +227,14 @@ public:
 	typedef DoubleArrayPool<pair_type> pair_pool_type;
 	typedef DoubleArrayPool<char_type> char_pool_type;
 
+	enum { DEFAULT_HASH_TABLE_SIZE = 1 << 8 };
+
 private:
 	pair_pool_type state_pool_;
 	char_pool_type label_pool_;
-	pair_pool_type node_pool_;
-	std::stack<base_type> recycle_stack_;
+	std::vector<base_type> hash_table_;
+	std::vector<base_type> unfixed_states_;
+	std::vector<base_type> unused_states_;
 	base_type num_of_merged_states_;
 
 	// Copies are not allowed.
@@ -238,8 +242,9 @@ private:
 	DoubleArrayDawg &operator=(const DoubleArrayDawg &);
 
 public:
-	DoubleArrayDawg() : state_pool_(), label_pool_(), node_pool_(),
-		recycle_stack_(), num_of_merged_states_(0) {}
+	DoubleArrayDawg() : state_pool_(), label_pool_(),
+		hash_table_(DEFAULT_HASH_TABLE_SIZE, 0),
+		unfixed_states_(), unused_states_(), num_of_merged_states_(0) {}
 
 	// Builds a dawg.
 	void build(size_type num_of_keys, const char_type * const *keys,
@@ -249,6 +254,7 @@ public:
 		// For the root state and the root node.
 		get();
 		set_label(0, 0);
+		unfixed_states_.push_back(0);
 
 		// Inserts and merges keys.
 		size_type key_id = num_of_keys;
@@ -267,11 +273,14 @@ public:
 
 		// Merges states corresponding to the first key.
 		merge(0);
-		node_pool_.clear();
 
 		LOG_VALUE(state_pool_.size());
-		LOG_VALUE(recycle_stack_.size());
+		LOG_VALUE(hash_table_.size());
+		LOG_VALUE(unfixed_states_.size());
+		LOG_VALUE(unused_states_.size());
 		LOG_VALUE(num_of_merged_states_);
+
+		std::vector<base_type>(0).swap(hash_table_);
 	}
 
 	// Gets the size of a state pool.
@@ -279,7 +288,7 @@ public:
 	{ return static_cast<base_type>(state_pool_.size()); }
 	// Gets the number of states.
 	base_type num_of_states() const
-	{ return static_cast<base_type>(size() - recycle_stack_.size()); }
+	{ return static_cast<base_type>(size() - unused_states_.size()); }
 
 public:
 	// Clears a state.
@@ -318,46 +327,7 @@ public:
 	{ return label_pool_[index]; }
 
 private:
-	// Clears a node.
-	void clear_node(base_type index)
-	{ node_pool_[index] = pair_type(0, 0); }
-
-	// Sets an index of the root node.
-	void set_root_node(base_type root_node)
-	{ set_right(0, root_node); }
-	// Sets a node color of a red-black tree.
-	void set_is_red(base_type index, bool is_red)
-	{
-		if (is_red)
-			node_pool_[index].first |= 1;
-		else
-			node_pool_[index].first &= ~static_cast<base_type>(1);
-	}
-	// Reads an index of a left node.
-	void set_left(base_type index, base_type left)
-	{
-		node_pool_[index].first &= 1;
-		node_pool_[index].first |= left << 1;
-	}
-	// Reads an index of a right node.
-	void set_right(base_type index, base_type right)
-	{ node_pool_[index].second = right; }
-
-	// Reads an index of the root node.
-	base_type root_node() const
-	{ return right(0); }
-	// Checks if a node of a red-black tree is red or not.
-	bool is_red(base_type index) const
-	{ return get_bit(node_pool_[index].first); }
-	// Reads an index of a left node.
-	base_type left(base_type index) const
-	{ return get_value(node_pool_[index].first); }
-	// Reads an index of a right node.
-	base_type right(base_type index) const
-	{ return node_pool_[index].second; }
-
-private:
-	// Keys should be inserted in reverse order.
+	// Inserts a key.
 	void insert_key(const char_type *key, size_type length, value_type value)
 	{
 		base_type index = 0;
@@ -371,7 +341,7 @@ private:
 				break;
 			else if (label(child_index) != get_key_label(key, length, key_pos))
 			{
-				set_child(index, merge(child_index));
+				merge(index);
 				break;
 			}
 			index = child_index;
@@ -383,6 +353,7 @@ private:
 			base_type child_index = get();
 			set_sibling(child_index, child(index));
 			set_label(child_index, get_key_label(key, length, key_pos));
+			unfixed_states_.push_back(child_index);
 			set_child(index, child_index);
 			index = child_index;
 		}
@@ -390,143 +361,124 @@ private:
 	}
 
 	// Merges common states recursively.
-	base_type merge(base_type index)
+	void merge(base_type index)
 	{
-		if (child(index) && !is_leaf(index))
+		while (unfixed_states_.back() != index)
 		{
-			base_type child_index = merge(child(index));
-			set_child(index, child_index);
-		}
+			base_type unfixed_index = unfixed_states_.back();
 
-		base_type matched_index = find_state(index);
-		if (matched_index)
-		{
-			unget(index);
-			index = matched_index;
-			++num_of_merged_states_;
-		}
-		else
-			insert_state(index);
+			if (size() >= hash_table_.size() - (hash_table_.size() >> 2))
+				expand_hash_table();
 
-		return index;
+			size_type hash_id;
+			base_type matched_index = find_state(unfixed_index, &hash_id);
+			if (matched_index)
+			{
+				unget(unfixed_index);
+				unfixed_index = matched_index;
+				++num_of_merged_states_;
+			}
+			else
+				hash_table_[hash_id] = unfixed_index;
+
+			unfixed_states_.resize(unfixed_states_.size() - 1);
+			set_child(unfixed_states_.back(), unfixed_index);
+		}
 	}
 
 private:
-	// Finds a state from a red-black tree.
-	base_type find_state(base_type index)
+	// Finds a state from a hash table.
+	base_type find_state(base_type index, size_type *hash_id) const
 	{
-		base_type node = root_node();
-		while (node)
+		const pair_type &state = state_pool_[index];
+		char_type label = label_pool_[index];
+
+		*hash_id = hash(state.first, state.second, label) % hash_table_.size();
+		for ( ; ; *hash_id = (*hash_id + 1) % hash_table_.size())
 		{
-			int cmp = compare_states(index, node);
-			if (!cmp)
-				return node;
-			else if (cmp < 0)
-				node = left(node);
-			else
-				node = right(node);
+			base_type state_id = hash_table_[*hash_id];
+			if (!state_id)
+				break;
+
+			if (state == state_pool_[state_id]
+				&& label == label_pool_[state_id])
+				return state_id;
 		}
+
 		return 0;
 	}
 
-	// Inserts a state into a red-black tree.
-	void insert_state(base_type index)
-	{ set_root_node(insert_state(root_node(), index)); }
-	// Inserts a state into a red-black tree.
-	base_type insert_state(base_type node, base_type index)
+	// Expands a hash table.
+	void expand_hash_table()
 	{
-		if (!node)
+		std::vector<base_type> free_states(unfixed_states_);
+		free_states.insert(free_states.end(),
+			unused_states_.begin(), unused_states_.end());
+		std::sort(free_states.begin(), free_states.end());
+
+		size_type hash_table_size = hash_table_.size() << 1;
+		std::vector<base_type>(0).swap(hash_table_);
+		hash_table_.resize(hash_table_size, 0);
+
+		// Inserts states into a new hash table.
+		base_type state_id = 0;
+		for (size_type i = 0; i < free_states.size(); ++i, ++state_id)
 		{
-			set_is_red(index, true);
-			return index;
+			for ( ; state_id < free_states[i]; ++state_id)
+			{
+				size_type hash_id;
+				find_state(state_id, &hash_id);
+				hash_table_[hash_id] = state_id;
+			}
 		}
-
-		if (is_red(left(node)) && is_red(right(node)))
-			color_flip(node);
-
-		int cmp = compare_states(index, node);
-		if (cmp < 0)
-			set_left(node, insert_state(left(node), index));
-		else if (cmp > 0)
-			set_right(node, insert_state(right(node), index));
-
-		if (is_red(right(node)))
-			node = rotate_left(node);
-		if (is_red(left(node)) && is_red(left(left(node))))
-			node = rotate_right(node);
-
-		return node;
+		for ( ; state_id < size(); ++state_id)
+		{
+			size_type hash_id;
+			find_state(state_id, &hash_id);
+			hash_table_[hash_id] = state_id;
+		}
 	}
 
-	// Compares a pair of states.
-	int compare_states(base_type lhs, base_type rhs) const
+	// Hash function.
+	static base_type hash(base_type a, base_type b, base_type c)
 	{
-		const pair_type &lhs_state = state_pool_[lhs];
-		const pair_type &rhs_state = state_pool_[rhs];
+		a = a - b; a = a - c; a = a ^ rotate_to_right(c, 13);
+		b = b - c; b = b - a; b = b ^ (a << 8);
+		c = c - a; c = c - b; c = c ^ rotate_to_right(b, 13);
+		a = a - b; a = a - c; a = a ^ rotate_to_right(c, 12);
+		b = b - c; b = b - a; b = b ^ (a << 16);
+		c = c - a; c = c - b; c = c ^ rotate_to_right(b, 5);
+		a = a - b; a = a - c; a = a ^ rotate_to_right(c, 3);
+		b = b - c; b = b - a; b = b ^ (a << 10);
+		c = c - a; c = c - b; c = c ^ rotate_to_right(b, 15);
 
-		if (lhs_state.first < rhs_state.first)
-			return -1;
-		else if (lhs_state.first > rhs_state.first)
-			return 1;
-
-		if (lhs_state.second < rhs_state.second)
-			return -1;
-		else if (lhs_state.second > rhs_state.second)
-			return 1;
-
-		return label_pool_[lhs] - label_pool_[rhs];
+		return c;
 	}
 
-	// Rotation for a red-black tree.
-	base_type rotate_left(base_type index)
-	{
-		base_type x_index = right(index);
-		set_right(index, left(x_index));
-		set_left(x_index, index);
-		set_is_red(x_index, is_red(index));
-		set_is_red(index, true);
-		return x_index;
-	}
-	// Rotation for a red-black tree.
-	base_type rotate_right(base_type index)
-	{
-		base_type x_index = left(index);
-		set_left(index, right(x_index));
-		set_right(x_index, index);
-		set_is_red(x_index, is_red(index));
-		set_is_red(index, true);
-		return x_index;
-	}
-	// Flips a color.
-	void color_flip(base_type index)
-	{
-		set_is_red(index, !is_red(index));
-		set_is_red(left(index), !is_red(left(index)));
-		set_is_red(right(index), !is_red(right(index)));
-	}
+	// Rotate shift for an unsigned integer.
+	static base_type rotate_to_right(base_type value, int shift)
+	{ return (value >> shift) | (value << (sizeof(value) - shift)); }
 
 private:
-	// Gets new objects.
+	// Gets a new object.
 	base_type get()
 	{
 		base_type index = 0;
-		if (recycle_stack_.empty())
+		if (unused_states_.empty())
 		{
 			index = state_pool_.get();
 			label_pool_.get();
-			node_pool_.get();
 		}
 		else
 		{
-			index = recycle_stack_.top();
-			recycle_stack_.pop();
+			index = unused_states_.back();
+			unused_states_.resize(unused_states_.size() - 1);
 		}
 		clear_state(index);
-		clear_node(index);
 		return index;
 	}
-	// Ungets latest objects.
-	void unget(base_type index) { recycle_stack_.push(index); }
+	// Ungets an object.
+	void unget(base_type index) { unused_states_.push_back(index); }
 
 	// Gets a least significant bit.
 	static bool get_bit(base_type value) { return (value & 1) ? true : false; }
