@@ -108,6 +108,7 @@ exit
  # {{{`chasen-config --mkchadic`/makemat}}} -i w
  # {{{`chasen-config --mkchadic`/makeda}}} -i w chadic `*`.dic
  # sudo make install
+ # sudo ./conv_utf-8.sh /usr/local/etc/chasenrc
 
 == 辞書サイズの比較 ==
 
