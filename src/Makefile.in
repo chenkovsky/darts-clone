@@ -31,7 +31,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = mkdarts-clone$(EXEEXT) darts-clone$(EXEEXT)
+bin_PROGRAMS = mkdarts-clone$(EXEEXT) darts-clone$(EXEEXT) \
+	darts-clone-benchmark$(EXEEXT)
 subdir = src
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -47,6 +48,9 @@ PROGRAMS = $(bin_PROGRAMS)
 am_darts_clone_OBJECTS = darts-clone.$(OBJEXT)
 darts_clone_OBJECTS = $(am_darts_clone_OBJECTS)
 darts_clone_LDADD = $(LDADD)
+am_darts_clone_benchmark_OBJECTS = darts-clone-benchmark.$(OBJEXT)
+darts_clone_benchmark_OBJECTS = $(am_darts_clone_benchmark_OBJECTS)
+darts_clone_benchmark_LDADD = $(LDADD)
 am_mkdarts_clone_OBJECTS = mkdarts-clone.$(OBJEXT)
 mkdarts_clone_OBJECTS = $(am_mkdarts_clone_OBJECTS)
 mkdarts_clone_LDADD = $(LDADD)
@@ -58,8 +62,10 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(darts_clone_SOURCES) $(mkdarts_clone_SOURCES)
-DIST_SOURCES = $(darts_clone_SOURCES) $(mkdarts_clone_SOURCES)
+SOURCES = $(darts_clone_SOURCES) $(darts_clone_benchmark_SOURCES) \
+	$(mkdarts_clone_SOURCES)
+DIST_SOURCES = $(darts_clone_SOURCES) $(darts_clone_benchmark_SOURCES) \
+	$(mkdarts_clone_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -160,13 +166,17 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-mkdarts_clone_SOURCES = mkdarts-clone.cpp
-darts_clone_SOURCES = darts-clone.cpp
+AM_CXXFLAGS = -Wall -Weffc++
+mkdarts_clone_SOURCES = mkdarts-clone.cc
+darts_clone_SOURCES = darts-clone.cc
+darts_clone_benchmark_SOURCES = darts-clone-benchmark.cc
 include_HEADERS = darts-clone.h
+EXTRA_HEADERS = timer.h
+EXTRA_DIST = ${EXTRA_HEADERS}
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .cpp .o .obj
+.SUFFIXES: .cc .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -222,6 +232,9 @@ clean-binPROGRAMS:
 darts-clone$(EXEEXT): $(darts_clone_OBJECTS) $(darts_clone_DEPENDENCIES) 
 	@rm -f darts-clone$(EXEEXT)
 	$(CXXLINK) $(darts_clone_OBJECTS) $(darts_clone_LDADD) $(LIBS)
+darts-clone-benchmark$(EXEEXT): $(darts_clone_benchmark_OBJECTS) $(darts_clone_benchmark_DEPENDENCIES) 
+	@rm -f darts-clone-benchmark$(EXEEXT)
+	$(CXXLINK) $(darts_clone_benchmark_OBJECTS) $(darts_clone_benchmark_LDADD) $(LIBS)
 mkdarts-clone$(EXEEXT): $(mkdarts_clone_OBJECTS) $(mkdarts_clone_DEPENDENCIES) 
 	@rm -f mkdarts-clone$(EXEEXT)
 	$(CXXLINK) $(mkdarts_clone_OBJECTS) $(mkdarts_clone_LDADD) $(LIBS)
@@ -232,17 +245,18 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts-clone-benchmark.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts-clone.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mkdarts-clone.Po@am__quote@
 
-.cpp.o:
+.cc.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
 @am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ $<
 
-.cpp.obj:
+.cc.obj:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
 @am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@

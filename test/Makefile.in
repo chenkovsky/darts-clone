@@ -146,6 +146,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+AM_CXXFLAGS = -Wall -Weffc++
 darts_clone_test_SOURCES = darts-clone-test.cpp
 TESTS = test-lib.sh test-bin.sh
 dist_noinst_DATA = \

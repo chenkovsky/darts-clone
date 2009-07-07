@@ -1,3 +1,5 @@
+AM_CXXFLAGS = -Wall -Weffc++
+
 check_PROGRAMS = darts-clone-test
 
 darts_clone_test_SOURCES = darts-clone-test.cpp

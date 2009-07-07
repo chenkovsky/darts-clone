@@ -15,16 +15,19 @@ AC_LANG_CPLUSPLUS
 
 # Checks for libraries.
 
-# Checks for header files.
+# Checks for C++ header files.
 AC_CHECK_HEADERS([dawgdic/dawg.h], ,
 	[AC_MSG_ERROR(dawgdic 0.30 or later: not found)])
+
+# Checks for header files.
+AC_CHECK_HEADERS([sys/time.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_TYPE_SIZE_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS([strchr])
+AC_CHECK_FUNCS([strchr clock_gettime gettimeofday])
 
 AC_CONFIG_FILES([Makefile src/Makefile test/Makefile])
 AC_OUTPUT
