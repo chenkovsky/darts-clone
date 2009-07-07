@@ -133,9 +133,11 @@ public:
 			size = static_cast<SizeType>(file.tellg()) - offset;
 			if (!file.seekg(offset))
 				return -1;
+			size /= unit_size();
 		}
 		units_buf_.resize(size);
-		if (!file.read(reinterpret_cast<char *>(&units_buf_[0]), size))
+		if (!file.read(reinterpret_cast<char *>(&units_buf_[0]),
+			size * unit_size()))
 			return -1;
 		set_array(&units_buf_[0], size);
 		return 0;
@@ -215,13 +217,34 @@ public:
 		return num_results;
 	}
 
-	// Searches a double-array for a given key.
+	// Searches a double-array for a given key terminated by zero.
 	ValueType traverse(const CharType *key, SizeType &node_pos,
-		SizeType &key_pos, SizeType length = 0) const
+		SizeType &key_pos) const
 	{
 		BaseType index = static_cast<BaseType>(node_pos);
 
-		while (length ? (key_pos < length) : (key[key_pos] != '\0'))
+		while (key[key_pos] != '\0')
+		{
+			if (!dic_.Follow(key[key_pos], &index))
+				return static_cast<ValueType>(-2);
+			node_pos = static_cast<SizeType>(index);
+			++key_pos;
+		}
+		if (!dic_.has_value(index))
+			return static_cast<ValueType>(-1);
+		return static_cast<ValueType>(dic_.value(index));
+	}
+
+	// Searches a double-array for a given key with its length.
+	ValueType traverse(const CharType *key, SizeType &node_pos,
+		SizeType &key_pos, SizeType length) const
+	{
+		if (length == 0)
+			return traverse(key, node_pos, key_pos);
+
+		BaseType index = static_cast<BaseType>(node_pos);
+
+		while (key_pos < length)
 		{
 			if (!dic_.Follow(key[key_pos], &index))
 				return static_cast<ValueType>(-2);
