@@ -32,8 +32,8 @@ darts.h を単純に置き換えることができます．
 
 == !MeCab への組み込み方 ==
 
-mecab-0.97 の場合，mecab-0.97.tar.gz を復元すると
-mecab-0.97/src の中に darts.h があります．
+mecab-0.98pre3 の場合，mecab-0.98pre3.tar.gz を復元すると
+mecab-0.98pre3/src の中に darts.h があります．
 このファイルを darts-clone.h で置き換えれば，
 後は通常の手順どおりにインストールできます．
 

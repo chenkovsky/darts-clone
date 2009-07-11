@@ -3,8 +3,7 @@
 
 = はじめに =
 
-Darts および Darts clone は，
-それぞれ単一の C++ ヘッダファイルとして提供されます．
+Darts および Darts clone は，C++ ヘッダファイルとして提供されます．
 そのため，提供されているヘッダを include するだけで利用できます．
 各ヘッダはテンプレートクラスを提供するとともに，
 一般的な設定に対する別名 Darts::!DoubleArray を提供します．
@@ -22,34 +21,24 @@ Darts::!HugeDoubleArray を使用する必要があるかもしれません．
 キー数が 3000 万件を超える状況や長いキーを大量に扱う状況では，
 Darts::!HugeDoubleArray の使用を検討してください．
 
-{{{
-namespace Darts {
-
-typedef Darts::DoubleArrayBase<int, 3> DoubleArray;
-typedef Darts::DoubleArrayImpl<int, 0> HugeDoubleArray;
-
-}  // namespace Darts
-}}}
-
 = 基本クラス =
 
-Darts::!DoubleArray や Darts::!HugeDoubleArray は
-Darts::!DoubleArrayBase のインスタンスに対する別名であり，
-すべての機能は Darts::!DoubleArrayBase により提供されています．
+Darts::!DoubleArray や Darts::!HugeDoubleArray は，
+Darts::!DoubleArrayBase（Darts clone 0.32e）あるいは
+Darts::!DoubleArrayImpl（Darts clone 0.32f）のインスタンスに対する別名です．
 
 {{{
 namespace Darts {
 
-template <typename ValueType, int IdBits>
-class DoubleArrayBase {
+class DoubleArray {
 public:
 	typedef char char_type;
 	typedef unsigned char uchar_type;
 	typedef unsigned int base_type;
 	typedef std::size_t size_type;
-	typedef ValueType value_type;
+	typedef int value_type;
 
-	typedef DoubleArrayUnit<VALUE_ID_BITS> unit_type;
+	typedef DoubleArrayUnit unit_type;
 
 	struct result_pair_type {
 		value_type value;
@@ -60,8 +49,8 @@ public:
 	typedef char_type key_type;
 	typedef ValueType result_type;
 
-	DoubleArrayBase();
-	~DoubleArrayBase();
+	DoubleArray();
+	~DoubleArray();
 
 	int build(size_type num_of_keys, const char_type * const *keys,
 		const size_type *lengths = 0, const value_type *values = 0,
@@ -96,6 +85,11 @@ public:
 
 	value_type traverse(const char_type *key, size_type &agent,
 		size_type &key_index, size_type length = 0) const;
+
+private:
+	// Disallows copies.
+	DoubleArray(const DoubleArray &);
+	DoubleArray &operator=(const DoubleArray &);
 };
 
 }  // namespace Darts
@@ -103,23 +97,22 @@ public:
 
 == 基本クラスのテンプレート引数 ==
 
-Darts と Darts clone では，基本クラスの名前から異なります．
-Darts が Darts::!DoubleArrayImpl を用いるのに対し，
-Darts clone では Darts::!DoubleArrayBase を使用します．
-Darts::!DoubleArrayBase のテンプレート引数については，
-以下の表を参考にしてください．
+Darts と Darts clone では，基本クラスの名前や機能が異なります．
+通常は Darts::!DoubleArray のみを用いるので問題ありませんが，
+基本クラスを用いる場合，注意が必要となります．
 
-|| *引数名* || *別名* || *説明* ||
-|| ValueType || value_type || 各キーに持たせるレコードの型です．POD type として使用できる型を指定してください． ||
-|| IdBits || VALUE_ID_BITS || 共通するサフィックスの最大マージ数を指定します．大きいほどダブル配列のサイズが小さくなりますが，登録できるキー数の上限も小さくなるので注意してください．通常は変更しなくても問題ありません． ||
+Darts clone では，テンプレート引数を 4 つ受け取る
+Darts::!DoubleArrayImpl を提供していますが，
+これは !ChaSen における互換性のためだけに提供されているので，
+特定のテンプレート引数以外を変更しても反映されません．
 
 == 基本クラスの提供する型 ==
 
-基本クラス Darts::!DoubleArrayBase は，検索結果を受け取るためのクラス
-Darts::!DoubleArrayBase::result_pair_type を提供します．
+Darts::!DoubleArray は，検索結果を受け取るためのクラス
+Darts::!DoubleArray::result_pair_type を提供します．
 メソッド exactMatchSearch() および commonPrefixSearch() では，
-Darts::!DoubleArrayBase::value_type と
-Darts::!DoubleArrayImpl::result_pair_type の両方を同じように扱えます．
+Darts::!DoubleArray::value_type と
+Darts::!DoubleArray::result_pair_type の両方を同じように扱えます．
 
 {{{
 struct result_pair_type {
@@ -137,13 +130,13 @@ length には一致したキーの長さが格納されます．
 
 == 基本クラスのメソッド ==
 
-基本的に Darts の Darts::!DoubleArrayImpl と同じように振舞います．
+基本的に Darts の Darts::!DoubleArray と同じように振舞います．
 多くのメソッドは，成功すれば 0，失敗すれば -1 を返すように設計されています．
 
 === 構築用のメソッド ===
 
 {{{
-DoubleArrayBase();
+DoubleArray();
 }}}
 
 オブジェクトを初期化します．
@@ -209,8 +202,8 @@ length には入力文字列の長さを指定します．
 length を省略すると，0 が出現するまでのバイト数が採用されます．
 agent には，traverse() により取得した検索位置を指定できます．
 
-!ResultType には，Darts::!DoubleArrayBase::result_type と
-Darts::!DoubleArrayBase::result_pair_type を指定できます．
+!ResultType には，Darts::!DoubleArray::result_type と
+Darts::!DoubleArray::result_pair_type を指定できます．
 result_type を指定すると，キーと対応する値のみを取得できます．
 一方，result_pair_type を指定すると，
 キーと対応する値に加えて，一致したキーの長さを取得できます．
@@ -297,15 +290,11 @@ size_t nonzero_size() const;
 size_t total_size() const;;
 }}}
 
-ダブル配列の要素数を返します．
-実際には，ダブル配列が 1 つの配列により実装されていると仮定し，2 つの配列を連結したときのサイズから逆算した値を返します．
-
-ダブル配列の中で，使用されている要素の数を返します．
-size() と同様に，疑似的な値を返します．
+ダブル配列の要素数や各要素のサイズなどを返します．
 各メソッドの戻り値は以下のようになっています．
 
 || *メソッド* || *戻り値* ||
 || size() || 要素数 ||
 || unit_size() || 各要素のサイズ ||
-|| nonzero_size() || 0 ||
-|| total_size() || ダブル配列のサイズ ||
+|| nonzero_size() || 要素数 ||
+|| total_size() || ダブル配列のサイズ（size() `*` unit_size()） ||

@@ -14,8 +14,8 @@ Darts clone を !MeCab や !ChaSen で利用する方法を紹介します．
 
 == 組み込み方法 ==
 
-!MeCab を Ubuntu 8.04 上でコンパイルしました．
-使用したのは，mecab-0.97.tar.gz と
+!MeCab を Ubuntu 9.04 上でコンパイルしました．
+使用したのは，mecab-0.98pre3.tar.gz と
 mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
 これらのアーカイブは以下のサイトから入手できます．
 
@@ -25,11 +25,10 @@ mecab-ipadic-2.7.0-20070801.tar.gz の組み合わせです．
 辞書構築までの手順は以下の通りです．
 mecab-0.97.tar.gz に含まれる darts.h を darts-clone.h により置き換えました．
 
- # tar zxvf mecab-0.97.tar.gz
- # cd mecab-0.97
+ # tar zxvf mecab-0.98pre3.tar.gz
+ # cd mecab-0.98pre3
  # ./configure
  # make
- # make check
  # sudo make install
  # cd ..
  # tar zxvf mecab-ipadic-2.7.0-20070801.tar.gz
@@ -65,7 +64,7 @@ sys.dic のサイズが 15% ほど削減されるにとどまりました．
 
 == 組み込み方法 ==
 
-chasen-2.4.4 を Ubuntu 8.04 にインストールしました．
+chasen-2.4.4 を Ubuntu 9.04 にインストールしました．
 以下のサイトを参考に，文字コードには UTF-8 を採用しています．
 
  * !ChaSen -- 形態素解析器
