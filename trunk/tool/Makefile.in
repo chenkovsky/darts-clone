@@ -31,9 +31,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = mkdarts-clone$(EXEEXT) darts-clone$(EXEEXT) \
-	darts-clone-benchmark$(EXEEXT)
-subdir = src
+bin_PROGRAMS = mkdarts$(EXEEXT) darts$(EXEEXT) \
+	darts-benchmark$(EXEEXT)
+subdir = tool
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -45,15 +45,15 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(includedir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_darts_clone_OBJECTS = darts-clone.$(OBJEXT)
-darts_clone_OBJECTS = $(am_darts_clone_OBJECTS)
-darts_clone_LDADD = $(LDADD)
-am_darts_clone_benchmark_OBJECTS = darts-clone-benchmark.$(OBJEXT)
-darts_clone_benchmark_OBJECTS = $(am_darts_clone_benchmark_OBJECTS)
-darts_clone_benchmark_LDADD = $(LDADD)
-am_mkdarts_clone_OBJECTS = mkdarts-clone.$(OBJEXT)
-mkdarts_clone_OBJECTS = $(am_mkdarts_clone_OBJECTS)
-mkdarts_clone_LDADD = $(LDADD)
+am_darts_OBJECTS = darts.$(OBJEXT)
+darts_OBJECTS = $(am_darts_OBJECTS)
+darts_LDADD = $(LDADD)
+am_darts_benchmark_OBJECTS = darts-benchmark.$(OBJEXT)
+darts_benchmark_OBJECTS = $(am_darts_benchmark_OBJECTS)
+darts_benchmark_LDADD = $(LDADD)
+am_mkdarts_OBJECTS = mkdarts.$(OBJEXT)
+mkdarts_OBJECTS = $(am_mkdarts_OBJECTS)
+mkdarts_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -62,10 +62,10 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(darts_clone_SOURCES) $(darts_clone_benchmark_SOURCES) \
-	$(mkdarts_clone_SOURCES)
-DIST_SOURCES = $(darts_clone_SOURCES) $(darts_clone_benchmark_SOURCES) \
-	$(mkdarts_clone_SOURCES)
+SOURCES = $(darts_SOURCES) $(darts_benchmark_SOURCES) \
+	$(mkdarts_SOURCES)
+DIST_SOURCES = $(darts_SOURCES) $(darts_benchmark_SOURCES) \
+	$(mkdarts_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -166,12 +166,19 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CXXFLAGS = -Wall -Weffc++
-mkdarts_clone_SOURCES = mkdarts-clone.cc
-darts_clone_SOURCES = darts-clone.cc
-darts_clone_benchmark_SOURCES = darts-clone-benchmark.cc
-include_HEADERS = darts-clone.h
-EXTRA_HEADERS = timer.h
+AM_CXXFLAGS = -Wall -Weffc++ -I../include
+mkdarts_SOURCES = mkdarts.cc
+darts_SOURCES = darts.cc
+darts_benchmark_SOURCES = darts-benchmark.cc
+include_HEADERS = ../include/darts.h
+EXTRA_HEADERS = \
+	timer.h \
+	lexicon.h \
+	mersenne-twister.h \
+	mkdarts-config.h \
+	darts-config.h \
+	benchmark-config.h
+
 EXTRA_DIST = ${EXTRA_HEADERS}
 all: all-am
 
@@ -186,9 +193,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  tool/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  src/Makefile
+	  $(AUTOMAKE) --gnu  tool/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -229,15 +236,15 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-darts-clone$(EXEEXT): $(darts_clone_OBJECTS) $(darts_clone_DEPENDENCIES) 
-	@rm -f darts-clone$(EXEEXT)
-	$(CXXLINK) $(darts_clone_OBJECTS) $(darts_clone_LDADD) $(LIBS)
-darts-clone-benchmark$(EXEEXT): $(darts_clone_benchmark_OBJECTS) $(darts_clone_benchmark_DEPENDENCIES) 
-	@rm -f darts-clone-benchmark$(EXEEXT)
-	$(CXXLINK) $(darts_clone_benchmark_OBJECTS) $(darts_clone_benchmark_LDADD) $(LIBS)
-mkdarts-clone$(EXEEXT): $(mkdarts_clone_OBJECTS) $(mkdarts_clone_DEPENDENCIES) 
-	@rm -f mkdarts-clone$(EXEEXT)
-	$(CXXLINK) $(mkdarts_clone_OBJECTS) $(mkdarts_clone_LDADD) $(LIBS)
+darts$(EXEEXT): $(darts_OBJECTS) $(darts_DEPENDENCIES) 
+	@rm -f darts$(EXEEXT)
+	$(CXXLINK) $(darts_OBJECTS) $(darts_LDADD) $(LIBS)
+darts-benchmark$(EXEEXT): $(darts_benchmark_OBJECTS) $(darts_benchmark_DEPENDENCIES) 
+	@rm -f darts-benchmark$(EXEEXT)
+	$(CXXLINK) $(darts_benchmark_OBJECTS) $(darts_benchmark_LDADD) $(LIBS)
+mkdarts$(EXEEXT): $(mkdarts_OBJECTS) $(mkdarts_DEPENDENCIES) 
+	@rm -f mkdarts$(EXEEXT)
+	$(CXXLINK) $(mkdarts_OBJECTS) $(mkdarts_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -245,9 +252,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts-clone-benchmark.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts-clone.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mkdarts-clone.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts-benchmark.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darts.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mkdarts.Po@am__quote@
 
 .cc.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

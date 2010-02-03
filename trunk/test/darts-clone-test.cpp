@@ -3,9 +3,10 @@
 // Copyright (C) 2008-2009 Susumu Yata <syata@acm.org>
 // All rights reserved.
 
-#include "../src/darts-clone.h"
+#include <darts-clone.h>
 
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -63,7 +64,7 @@ int TestExactMatchSearch(const Darts::DoubleArray &da,
 		result_pair.length = 0;
 		da.exactMatchSearch(keys[i], result_pair);
 		if (static_cast<std::size_t>(result_pair.value) != i
-			|| result_pair.length != strlen(keys[i]))
+			|| result_pair.length != std::strlen(keys[i]))
 		{
 			ERR << "exactMatchSearch() failed: " << result_pair.value
 				<< ", " << result_pair.length << std::endl;
