@@ -1,22 +1,28 @@
-A clone of the Darts (Double-ARray Trie System)
+Darts-clone: A clone of the Darts (Double-ARray Trie System)
 
-This project provides a clone of the Darts (Double-ARray Trie System).
-This clone library has an advantage in memory.
+This project provides a clone of Darts (Double-ARray Trie System), which
+is a C++ header library for double-array.
 
-The Darts is a C++ header library for the double-array implemented by
-Taku Kudo. The double-array was presented by Jun-ichi Aoe as an
-efficient implementation of a trie. In practice, the Darts is used in
-several applications such as ChaSen and MeCab (Japanese morphological
-analyzers) because the double-array provides fast prefix matching for
-multiple patterns with a compact dictionary.
+The major advantages of this clone are as follows:
 
-However, the Darts is based on a traditional implementation, and in fact,
-we can improve the performance of the Darts by using a new implementation.
-Therefore, this project provides a Darts-like library that is based on
-a new implementation of the double-array.
+1. Compact dictionary
+
+   Darts-clone uses half-size elements. This simply halves the size of
+   dictionaries.
+
+2. More compact dictionary
+
+   Darts-clone uses directed acyclic word graphs (DAWG) instead of tries.
+   Since a DAWG is derived from a trie by merging its common subtrees,
+   if there are many keys which have the same value, Darts-clone requires
+   less elements than Darts.
+
+Darts-clone thus makes dictionaries more compact. And surprisingly, the
+compaction does not increase the search time.
 
 Project URL: http://code.google.com/p/darts-clone/
 
 --
 Susumu Yata <syata@acm.org>
-Supported by Research Fellowships of the JSPS for Young Scientists.
+University of Tokushima
+JSPS Research Fellow

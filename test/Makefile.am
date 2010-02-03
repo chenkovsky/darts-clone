@@ -1,16 +1,17 @@
-AM_CXXFLAGS = -Wall -Weffc++
+AM_CXXFLAGS = -Wall -Weffc++ -I../include
 
-check_PROGRAMS = darts-clone-test
+TESTS = \
+	test-darts \
+	test-tool.sh
 
-darts_clone_test_SOURCES = darts-clone-test.cpp
+noinst_PROGRAMS = test-darts
 
-TESTS = test-lib.sh test-bin.sh
+test_darts_SOURCES = test-darts.cc
 
-dist_noinst_DATA = \
-	$(TESTS)
+dist_noinst_DATA = test-tool.sh
 
 EXTRA_DIST = \
-	CorrectIndexFile \
-	CorrectResultFile \
-	KeyFile \
-	TextFile
+	correct-dic \
+	correct-result \
+	test-lexicon \
+	test-text
