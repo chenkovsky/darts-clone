@@ -282,13 +282,14 @@ U DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
 	U result;
 	set_result(&result, -1, 0);
 
-	id_type id = static_cast<id_type>(node_pos);
+	unit_type unit = array_[node_pos];
 	if (length != 0)
 	{
 		for (std::size_t i = 0; i < length; ++i)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[i]);
-			if (array_[id].label() != static_cast<uchar_type>(key[i]))
+			node_pos ^= unit.offset() ^ static_cast<uchar_type>(key[i]);
+			unit = array_[node_pos];
+			if (unit.label() != static_cast<uchar_type>(key[i]))
 				return result;
 		}
 	}
@@ -296,17 +297,18 @@ U DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
 	{
 		for ( ; key[length] != '\0'; ++length)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[length]);
-			if (array_[id].label() != static_cast<uchar_type>(key[length]))
+			node_pos ^= unit.offset() ^ static_cast<uchar_type>(key[length]);
+			unit = array_[node_pos];
+			if (unit.label() != static_cast<uchar_type>(key[length]))
 				return result;
 		}
 	}
 
-	if (!array_[id].has_leaf())
+	if (!unit.has_leaf())
 		return result;
 
-	set_result(&result, static_cast<value_type>(
-		array_[id ^ array_[id].offset()].value()), length);
+	unit = array_[node_pos ^ unit.offset()];
+	set_result(&result, static_cast<value_type>(unit.value()), length);
 	return result;
 }
 
@@ -318,21 +320,24 @@ std::size_t DoubleArrayImpl<A, B, T, C>::commonPrefixSearch(
 {
 	std::size_t num_results = 0;
 
-	id_type id = static_cast<id_type>(node_pos);
+	unit_type unit = array_[node_pos];
+	node_pos ^= unit.offset();
 	if (length != 0)
 	{
 		for (std::size_t i = 0; i < length; ++i)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[i]);
-			if (array_[id].label() != static_cast<uchar_type>(key[i]))
+			node_pos ^= static_cast<uchar_type>(key[i]);
+			unit = array_[node_pos];
+			if (unit.label() != static_cast<uchar_type>(key[i]))
 				return num_results;
 
-			if (array_[id].has_leaf())
+			node_pos ^= unit.offset();
+			if (unit.has_leaf())
 			{
 				if (num_results < max_num_results)
 				{
 					set_result(&results[num_results], static_cast<value_type>(
-						array_[id ^ array_[id].offset()].value()), i + 1);
+						array_[node_pos].value()), i + 1);
 				}
 				++num_results;
 			}
@@ -342,16 +347,18 @@ std::size_t DoubleArrayImpl<A, B, T, C>::commonPrefixSearch(
 	{
 		for ( ; key[length] != '\0'; ++length)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[length]);
-			if (array_[id].label() != static_cast<uchar_type>(key[length]))
+			node_pos ^= static_cast<uchar_type>(key[length]);
+			unit = array_[node_pos];
+			if (unit.label() != static_cast<uchar_type>(key[length]))
 				return num_results;
 
-			if (array_[id].has_leaf())
+			node_pos ^= unit.offset();
+			if (unit.has_leaf())
 			{
 				if (num_results < max_num_results)
 				{
 					set_result(&results[num_results], static_cast<value_type>(
-						array_[id ^ array_[id].offset()].value()), length + 1);
+						array_[node_pos].value()), length + 1);
 				}
 				++num_results;
 			}
@@ -367,12 +374,15 @@ DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
 	std::size_t &node_pos, std::size_t &key_pos, std::size_t length) const
 {
 	id_type id = static_cast<id_type>(node_pos);
+	unit_type unit = array_[id];
+
 	if (length != 0)
 	{
 		for ( ; key_pos < length; ++key_pos)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[key_pos]);
-			if (array_[id].label() != static_cast<uchar_type>(key[key_pos]))
+			id ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
+			unit = array_[id];
+			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
 				return -2;
 			node_pos = id;
 		}
@@ -381,17 +391,19 @@ DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
 	{
 		for ( ; key[key_pos] != '\0'; ++key_pos)
 		{
-			id ^= array_[id].offset() ^ static_cast<uchar_type>(key[key_pos]);
-			if (array_[id].label() != static_cast<uchar_type>(key[key_pos]))
+			id ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
+			unit = array_[id];
+			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
 				return -2;
 			node_pos = id;
 		}
 	}
 
-	if (!array_[id].has_leaf())
+	if (!unit.has_leaf())
 		return -1;
 
-	return static_cast<value_type>(array_[id ^ array_[id].offset()].value());
+	unit = array_[id ^ unit.offset()];
+	return static_cast<value_type>(unit.value());
 }
 
 namespace Details {
