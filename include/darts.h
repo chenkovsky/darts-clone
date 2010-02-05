@@ -75,8 +75,8 @@ private:
 // Double-array implementation.
 //
 
-template <typename T>
-class DoubleArrayBase
+template <typename, typename, typename T, typename>
+class DoubleArrayImpl
 {
 public:
 	typedef T value_type;
@@ -89,12 +89,13 @@ public:
 		std::size_t length;
 	};
 
-	DoubleArrayBase() : size_(0), array_(NULL), buf_(NULL) {}
-	virtual ~DoubleArrayBase() { clear(); }
+	DoubleArrayImpl() : size_(0), array_(NULL), buf_(NULL) {}
+	virtual ~DoubleArrayImpl() { clear(); }
 
-	void set_result(value_type *result, value_type value, std::size_t) const;
-	void set_result(result_pair_type *result, value_type value,
-		std::size_t length) const;
+	inline void set_result(value_type *result,
+		value_type value, std::size_t) const;
+	inline void set_result(result_pair_type *result,
+		value_type value, std::size_t length) const;
 
 	void set_array(const void *ptr, std::size_t size = 0);
 	const void *array() const { return array_; }
@@ -117,18 +118,18 @@ public:
 		std::size_t offset = 0) const;
 
 	template <class U>
-	void exactMatchSearch(const key_type *key, U &result,
+	inline void exactMatchSearch(const key_type *key, U &result,
 		std::size_t length = 0, std::size_t node_pos = 0) const;
 	template <class U>
-	U exactMatchSearch(const key_type *key, std::size_t length = 0,
+	inline U exactMatchSearch(const key_type *key, std::size_t length = 0,
 		std::size_t node_pos = 0) const;
 
 	template <class U>
-	std::size_t commonPrefixSearch(const key_type *key, U *results,
+	inline std::size_t commonPrefixSearch(const key_type *key, U *results,
 		std::size_t max_num_results, std::size_t length = 0,
 		std::size_t node_pos = 0) const;
 
-	value_type traverse(const key_type *key, std::size_t &node_pos,
+	inline value_type traverse(const key_type *key, std::size_t &node_pos,
 		std::size_t &key_pos, std::size_t length = 0) const;
 
 private:
@@ -141,41 +142,38 @@ private:
 	unit_type *buf_;
 
 	// Disallows copies.
-	DoubleArrayBase(const DoubleArrayBase &);
-	DoubleArrayBase &operator=(const DoubleArrayBase &);
+	DoubleArrayImpl(const DoubleArrayImpl &);
+	DoubleArrayImpl &operator=(const DoubleArrayImpl &);
 };
 
 //
 // Basic double-array.
 //
 
-typedef DoubleArrayBase<int> DoubleArray;
-
-// For ChaSen.
-template <typename, typename, typename T, typename>
-class DoubleArrayImpl : public DoubleArrayBase<T> {};
+typedef DoubleArrayImpl<void, void, int, void> DoubleArray;
 
 //
-// Member functions of DoubleArrayBase (except build()).
+// Member functions of DoubleArrayImpl (except build()).
 //
 
-template <typename T>
-void DoubleArrayBase<T>::set_result(value_type *result,
+template <typename A, typename B, typename T, typename C>
+inline void DoubleArrayImpl<A, B, T, C>::set_result(value_type *result,
 	value_type value, std::size_t) const
 {
 	*result = value;
 }
 
-template <typename T>
-void DoubleArrayBase<T>::set_result(result_pair_type *result,
+template <typename A, typename B, typename T, typename C>
+inline void DoubleArrayImpl<A, B, T, C>::set_result(result_pair_type *result,
 	value_type value, std::size_t length) const
 {
 	result->value = value;
 	result->length = length;
 }
 
-template <typename T>
-void DoubleArrayBase<T>::set_array(const void *ptr, std::size_t size)
+template <typename A, typename B, typename T, typename C>
+void DoubleArrayImpl<A, B, T, C>::set_array(const void *ptr,
+	std::size_t size)
 {
 	clear();
 
@@ -183,8 +181,8 @@ void DoubleArrayBase<T>::set_array(const void *ptr, std::size_t size)
 	size_ = size;
 }
 
-template <typename T>
-void DoubleArrayBase<T>::clear()
+template <typename A, typename B, typename T, typename C>
+void DoubleArrayImpl<A, B, T, C>::clear()
 {
 	size_ = 0;
 	array_ = NULL;
@@ -195,8 +193,8 @@ void DoubleArrayBase<T>::clear()
 	}
 }
 
-template <typename T>
-int DoubleArrayBase<T>::open(const char *file_name,
+template <typename A, typename B, typename T, typename C>
+int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 	const char *mode, std::size_t offset, std::size_t size)
 {
 	std::FILE *file = std::fopen(file_name, mode);
@@ -248,8 +246,8 @@ int DoubleArrayBase<T>::open(const char *file_name,
 	return 0;
 }
 
-template <typename T>
-int DoubleArrayBase<T>::save(const char *file_name,
+template <typename A, typename B, typename T, typename C>
+int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
 	const char *mode, std::size_t offset) const
 {
 	if (size() == 0)
@@ -269,15 +267,17 @@ int DoubleArrayBase<T>::save(const char *file_name,
 	return 0;
 }
 
-template <typename T> template <typename U>
-void DoubleArrayBase<T>::exactMatchSearch(const key_type *key,
+template <typename A, typename B, typename T, typename C>
+template <typename U>
+inline void DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
 	U &result, std::size_t length, std::size_t node_pos) const
 {
 	result = exactMatchSearch<U>(key, length, node_pos);
 }
 
-template <typename T> template <typename U>
-U DoubleArrayBase<T>::exactMatchSearch(const key_type *key,
+template <typename A, typename B, typename T, typename C>
+template <typename U>
+inline U DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
 	std::size_t length, std::size_t node_pos) const
 {
 	U result;
@@ -313,8 +313,9 @@ U DoubleArrayBase<T>::exactMatchSearch(const key_type *key,
 	return result;
 }
 
-template <typename T> template <typename U>
-std::size_t DoubleArrayBase<T>::commonPrefixSearch(
+template <typename A, typename B, typename T, typename C>
+template <typename U>
+inline std::size_t DoubleArrayImpl<A, B, T, C>::commonPrefixSearch(
 	const key_type *key, U *results, std::size_t max_num_results,
 	std::size_t length, std::size_t node_pos) const
 {
@@ -368,9 +369,9 @@ std::size_t DoubleArrayBase<T>::commonPrefixSearch(
 	return num_results;
 }
 
-template <typename T>
-typename DoubleArrayBase<T>::value_type
-DoubleArrayBase<T>::traverse(const key_type *key,
+template <typename A, typename B, typename T, typename C>
+inline typename DoubleArrayImpl<A, B, T, C>::value_type
+DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
 	std::size_t &node_pos, std::size_t &key_pos, std::size_t length) const
 {
 	id_type id = static_cast<id_type>(node_pos);
@@ -1540,11 +1541,11 @@ inline void DoubleArrayBuilder::fix_block(id_type block_id)
 }  // namespace Details
 
 //
-// Member function build() of DoubleArrayBase.
+// Member function build() of DoubleArrayImpl.
 //
 
-template <typename T>
-int DoubleArrayBase<T>::build(std::size_t num_keys,
+template <typename A, typename B, typename T, typename C>
+int DoubleArrayImpl<A, B, T, C>::build(std::size_t num_keys,
 	const key_type * const *keys, const std::size_t *lengths,
 	const value_type *values, int (*progress_func)(std::size_t, std::size_t))
 {
