@@ -75,8 +75,8 @@ private:
 // Double-array implementation.
 //
 
-template <typename, typename, typename T, typename>
-class DoubleArrayImpl
+template <typename T>
+class DoubleArrayBase
 {
 public:
 	typedef T value_type;
@@ -89,8 +89,8 @@ public:
 		std::size_t length;
 	};
 
-	DoubleArrayImpl() : size_(0), array_(NULL), buf_(NULL) {}
-	virtual ~DoubleArrayImpl() { clear(); }
+	DoubleArrayBase() : size_(0), array_(NULL), buf_(NULL) {}
+	virtual ~DoubleArrayBase() { clear(); }
 
 	void set_result(value_type *result, value_type value, std::size_t) const;
 	void set_result(result_pair_type *result, value_type value,
@@ -141,38 +141,41 @@ private:
 	unit_type *buf_;
 
 	// Disallows copies.
-	DoubleArrayImpl(const DoubleArrayImpl &);
-	DoubleArrayImpl &operator=(const DoubleArrayImpl &);
+	DoubleArrayBase(const DoubleArrayBase &);
+	DoubleArrayBase &operator=(const DoubleArrayBase &);
 };
 
 //
 // Basic double-array.
 //
 
-typedef DoubleArrayImpl<void, void, int, void> DoubleArray;
+typedef DoubleArrayBase<int> DoubleArray;
+
+// For ChaSen.
+template <typename, typename, typename T, typename>
+class DoubleArrayImpl : public DoubleArrayBase<T> {};
 
 //
-// Member functions of DoubleArrayImpl (except build()).
+// Member functions of DoubleArrayBase (except build()).
 //
 
-template <typename A, typename B, typename T, typename C>
-void DoubleArrayImpl<A, B, T, C>::set_result(value_type *result,
+template <typename T>
+void DoubleArrayBase<T>::set_result(value_type *result,
 	value_type value, std::size_t) const
 {
 	*result = value;
 }
 
-template <typename A, typename B, typename T, typename C>
-void DoubleArrayImpl<A, B, T, C>::set_result(result_pair_type *result,
+template <typename T>
+void DoubleArrayBase<T>::set_result(result_pair_type *result,
 	value_type value, std::size_t length) const
 {
 	result->value = value;
 	result->length = length;
 }
 
-template <typename A, typename B, typename T, typename C>
-void DoubleArrayImpl<A, B, T, C>::set_array(const void *ptr,
-	std::size_t size)
+template <typename T>
+void DoubleArrayBase<T>::set_array(const void *ptr, std::size_t size)
 {
 	clear();
 
@@ -180,8 +183,8 @@ void DoubleArrayImpl<A, B, T, C>::set_array(const void *ptr,
 	size_ = size;
 }
 
-template <typename A, typename B, typename T, typename C>
-void DoubleArrayImpl<A, B, T, C>::clear()
+template <typename T>
+void DoubleArrayBase<T>::clear()
 {
 	size_ = 0;
 	array_ = NULL;
@@ -192,8 +195,8 @@ void DoubleArrayImpl<A, B, T, C>::clear()
 	}
 }
 
-template <typename A, typename B, typename T, typename C>
-int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
+template <typename T>
+int DoubleArrayBase<T>::open(const char *file_name,
 	const char *mode, std::size_t offset, std::size_t size)
 {
 	std::FILE *file = std::fopen(file_name, mode);
@@ -245,8 +248,8 @@ int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 	return 0;
 }
 
-template <typename A, typename B, typename T, typename C>
-int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
+template <typename T>
+int DoubleArrayBase<T>::save(const char *file_name,
 	const char *mode, std::size_t offset) const
 {
 	if (size() == 0)
@@ -266,21 +269,19 @@ int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
 	return 0;
 }
 
-template <typename A, typename B, typename T, typename C>
-template <typename U>
-void DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
+template <typename T> template <typename U>
+void DoubleArrayBase<T>::exactMatchSearch(const key_type *key,
 	U &result, std::size_t length, std::size_t node_pos) const
 {
 	result = exactMatchSearch<U>(key, length, node_pos);
 }
 
-template <typename A, typename B, typename T, typename C>
-template <typename U>
-U DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
+template <typename T> template <typename U>
+U DoubleArrayBase<T>::exactMatchSearch(const key_type *key,
 	std::size_t length, std::size_t node_pos) const
 {
 	U result;
-	set_result(&result, -1, 0);
+	set_result(&result, static_cast<value_type>(-1), 0);
 
 	unit_type unit = array_[node_pos];
 	if (length != 0)
@@ -312,9 +313,8 @@ U DoubleArrayImpl<A, B, T, C>::exactMatchSearch(const key_type *key,
 	return result;
 }
 
-template <typename A, typename B, typename T, typename C>
-template <typename U>
-std::size_t DoubleArrayImpl<A, B, T, C>::commonPrefixSearch(
+template <typename T> template <typename U>
+std::size_t DoubleArrayBase<T>::commonPrefixSearch(
 	const key_type *key, U *results, std::size_t max_num_results,
 	std::size_t length, std::size_t node_pos) const
 {
@@ -368,9 +368,9 @@ std::size_t DoubleArrayImpl<A, B, T, C>::commonPrefixSearch(
 	return num_results;
 }
 
-template <typename A, typename B, typename T, typename C>
-typename DoubleArrayImpl<A, B, T, C>::value_type
-DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
+template <typename T>
+typename DoubleArrayBase<T>::value_type
+DoubleArrayBase<T>::traverse(const key_type *key,
 	std::size_t &node_pos, std::size_t &key_pos, std::size_t length) const
 {
 	id_type id = static_cast<id_type>(node_pos);
@@ -383,7 +383,7 @@ DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
 			id ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
 			unit = array_[id];
 			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
-				return -2;
+				return static_cast<value_type>(-2);
 			node_pos = id;
 		}
 	}
@@ -394,13 +394,13 @@ DoubleArrayImpl<A, B, T, C>::traverse(const key_type *key,
 			id ^= unit.offset() ^ static_cast<uchar_type>(key[key_pos]);
 			unit = array_[id];
 			if (unit.label() != static_cast<uchar_type>(key[key_pos]))
-				return -2;
+				return static_cast<value_type>(-2);
 			node_pos = id;
 		}
 	}
 
 	if (!unit.has_leaf())
-		return -1;
+		return static_cast<value_type>(-1);
 
 	unit = array_[id ^ unit.offset()];
 	return static_cast<value_type>(unit.value());
@@ -1540,11 +1540,11 @@ inline void DoubleArrayBuilder::fix_block(id_type block_id)
 }  // namespace Details
 
 //
-// Member function build() of DoubleArrayImpl.
+// Member function build() of DoubleArrayBase.
 //
 
-template <typename A, typename B, typename T, typename C>
-int DoubleArrayImpl<A, B, T, C>::build(std::size_t num_keys,
+template <typename T>
+int DoubleArrayBase<T>::build(std::size_t num_keys,
 	const key_type * const *keys, const std::size_t *lengths,
 	const value_type *values, int (*progress_func)(std::size_t, std::size_t))
 {
