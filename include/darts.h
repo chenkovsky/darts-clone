@@ -34,7 +34,7 @@ public:
 	DoubleArrayUnit() : unit_() {}
 
 	bool has_leaf() const
-	{ return (((unit_ >> 8) & 1) == 1) ? true : false; }
+	{ return ((unit_ >> 8) & 1) == 1; }
 	value_type value() const
 	{ return static_cast<value_type>(unit_ & ((1U << 31) - 1)); }
 	id_type label() const
@@ -794,9 +794,9 @@ public:
 	id_type unit() const { return unit_; }
 
 	id_type child() const { return unit_ >> 2; }
-	bool has_sibling() const { return ((unit_ & 1) == 1) ? true : false; }
+	bool has_sibling() const { return (unit_ & 1) == 1; }
 	value_type value() const { return static_cast<value_type>(unit_ >> 1); }
-	bool is_state() const { return ((unit_ & 2) == 2) ? true : false; }
+	bool is_state() const { return (unit_ & 2) == 2; }
 
 private:
 	id_type unit_;
