@@ -2,6 +2,16 @@
 
 = 変更履歴 =
 
+ * 2010/2/20
+  * Wiki を更新．
+ * 2010/2/6
+  * darts-clone-0.32g-beta2.tar.gz をアップロード．
+ * 2010/2/3
+  * darts-clone-0.32g-beta.tar.gz をアップロード．
+ * 2009/7/7
+  * darts-clone-0.32f.tar.gz をアップロード．
+ * 2009/4/1
+  * darts-clone-0.32f-rc2.tar.gz をアップロード．
  * 2009/2/12
   * darts-clone-0.32f-rc1.tar.gz をアップロード．
   * 速度重視．

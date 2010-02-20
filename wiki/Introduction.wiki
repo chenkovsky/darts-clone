@@ -7,15 +7,15 @@
 
 Darts clone は，ダブル配列のライブラリ Darts（Double-ARray Trie System）
 のクローンとして開発された C++ ヘッダライブラリです．
-Darts に対する利点は，辞書のサイズを大幅に削減できることです．
+Darts に対する利点は，辞書を小さくできることです．
 
  * Darts: Double-ARray Trie System
   * http://chasen.org/~taku/software/darts/
 
 == 注意事項 ==
 
-Darts clone 0.32e 以降では，
-キー集合の規模や使用する型に関する制限はなくなっています．
+Darts clone 0.32e より前のバージョンでは，
+キー集合の規模や使用できる型に制限がありました．
 
 == その他の変更点 ==
 
@@ -24,7 +24,6 @@ Darts clone 0.32e 以降では，Darts とほぼ同じインタフェースに�
 = 使い方 =
 
 基本的な使い方は Darts と同じで，ヘッダを include するだけです．
-darts-clone.h の名前を darts.h に変更すれば，
 darts.h を単純に置き換えることができます．
 ただし，バイナリ辞書には互換性がないため，再構築が必要となります．
 
@@ -34,7 +33,7 @@ darts.h を単純に置き換えることができます．
 
 mecab-0.98pre3 の場合，mecab-0.98pre3.tar.gz を復元すると
 mecab-0.98pre3/src の中に darts.h があります．
-このファイルを darts-clone.h で置き換えれば，
+このファイルを Darts clone の darts.h で置き換えれば，
 後は通常の手順どおりにインストールできます．
 
 詳細は [Applications] を参考にしてください．

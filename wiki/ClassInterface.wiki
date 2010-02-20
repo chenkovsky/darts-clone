@@ -16,75 +16,62 @@ Darts と Darts clone のインタフェースはとても似ています．
 == 通常の利用方法 ==
 
 Darts と同様に，通常は Darts::!DoubleArray を使用します．
-ただし，Darts clone 0.32e で非常に大規模なキー集合を扱う場合，
-Darts::!HugeDoubleArray を使用する必要があるかもしれません．
-キー数が 3000 万件を超える状況や長いキーを大量に扱う状況では，
-Darts::!HugeDoubleArray の使用を検討してください．
 
 = 基本クラス =
 
-Darts::!DoubleArray や Darts::!HugeDoubleArray は，
-Darts::!DoubleArrayBase（Darts clone 0.32e）あるいは
-Darts::!DoubleArrayImpl（Darts clone 0.32f）のインスタンスに対する別名です．
+Darts::!DoubleArray は，Darts::!DoubleArrayImpl（Darts clone 0.32f）の
+インスタンスに対する別名です．
 
 {{{
 namespace Darts {
 
 class DoubleArray {
 public:
-	typedef char char_type;
-	typedef unsigned char uchar_type;
-	typedef unsigned int base_type;
-	typedef std::size_t size_type;
 	typedef int value_type;
-
-	typedef DoubleArrayUnit unit_type;
+	typedef char key_type;
+	typedef value_type result_type;  // for compatibility.
 
 	struct result_pair_type {
 		value_type value;
 		size_type length;
 	};
 
-	// For compatibility.
-	typedef char_type key_type;
-	typedef ValueType result_type;
-
 	DoubleArray();
 	~DoubleArray();
 
-	int build(size_type num_of_keys, const char_type * const *keys,
-		const size_type *lengths = 0, const value_type *values = 0,
-		int (*progress_func)(size_type, size_type) = 0);
-
-	size_type size() const;
-	size_type unit_size() const;
-	size_type nonzero_size() const;
-	size_type total_size() const;
-
-	void set_array(const void *ptr, size_type size = 0);
+	void set_array(const void *ptr, std::size_t size = 0);
 	const void *array() const;
 
 	void clear();
 
+	std::size_t unit_size() const;
+	std::size_t size() const;
+	std::size_t total_size() const;
+	std::size_t nonzero_size() const;
+
+	int build(std::size_t num_keys, const key_type * const *keys,
+		const std::size_t *lengths = NULL, const value_type *values = NULL,
+		int (*progress_func)(std::size_t, std::size_t) = NULL);
+
 	int open(const char *file_name, const char *mode = "rb",
-		size_type offset = 0, size_type size = 0);
+		std::size_t offset = 0, std::size_t size = 0);
 	int save(const char *file_name, const char *mode = "wb",
-		size_type offset = 0) const;
+		std::size_t offset = 0) const;
 
-	template <typename ResultType>
-	void exactMatchSearch(const char_type *key, ResultType &result,
-		size_type length = 0, size_type agent = 0) const;
-	template <typename ResultType>
-	ResultType exactMatchSearch(const char_type *key,
-		size_type length = 0, size_type agent = 0) const;
+	template <class U>
+	inline void exactMatchSearch(const key_type *key, U &result,
+		std::size_t length = 0, std::size_t node_pos = 0) const;
+	template <class U>
+	inline U exactMatchSearch(const key_type *key, std::size_t length = 0,
+		std::size_t node_pos = 0) const;
 
-	template <typename ResultType>
-	size_type commonPrefixSearch(const char_type *key,
-		ResultType *results, size_type max_num_of_results,
-		size_type length = 0, size_type agent = 0) const;
+	template <class U>
+	inline std::size_t commonPrefixSearch(const key_type *key, U *results,
+		std::size_t max_num_results, std::size_t length = 0,
+		std::size_t node_pos = 0) const;
 
-	value_type traverse(const char_type *key, size_type &agent,
-		size_type &key_index, size_type length = 0) const;
+	inline value_type traverse(const key_type *key, std::size_t &node_pos,
+		std::size_t &key_pos, std::size_t length = 0) const;
 
 private:
 	// Disallows copies.
@@ -103,15 +90,15 @@ Darts と Darts clone では，基本クラスの名前や機能が異なりま�
 
 Darts clone では，テンプレート引数を 4 つ受け取る
 Darts::!DoubleArrayImpl を提供していますが，
-これは !ChaSen における互換性のためだけに提供されているので，
-特定のテンプレート引数以外を変更しても反映されません．
+1, 2, 4 番目のテンプレート引数は !ChaSen における
+互換性のためだけに提供されています．
 
 == 基本クラスの提供する型 ==
 
 Darts::!DoubleArray は，検索結果を受け取るためのクラス
 Darts::!DoubleArray::result_pair_type を提供します．
 メソッド exactMatchSearch() および commonPrefixSearch() では，
-Darts::!DoubleArray::value_type と
+Darts::!DoubleArray::result_type と
 Darts::!DoubleArray::result_pair_type の両方を同じように扱えます．
 
 {{{
@@ -133,168 +120,189 @@ length には一致したキーの長さが格納されます．
 基本的に Darts の Darts::!DoubleArray と同じように振舞います．
 多くのメソッドは，成功すれば 0，失敗すれば -1 を返すように設計されています．
 
-=== 構築用のメソッド ===
+=== コンストラクタ・デストラクタ===
 
 {{{
 DoubleArray();
+~DoubleArray();
 }}}
 
-オブジェクトを初期化します．
+コンストラクタはメンバの初期化のみをおこないます．
+デストラクタは clear() を呼び出し，
+ダブル配列の破棄とメモリの解放をおこないます．
+
+※ コピーコンストラクタと代入オペレータは禁止されています．
+
+=== アドレスの設定・取得 ===
 
 {{{
-int build(size_type num_of_keys, const char_type * const *keys,
-	const size_type *lengths = 0, const value_type *values = 0,
-	int (*progress_func)(size_type, size_type) = 0);
+void set_array(const void *ptr, std::size_t size = 0);
+const void *array() const;
 }}}
 
-num_of_keys に登録するキー数，keys には各キーへのポインタの配列，
+set_array() はダブル配列の開始アドレスを指定し，
+array() はダブル配列の開始アドレスを返します．
+array() により取得した配列を保存したファイルに対して mmap() を呼び出し，
+取得したアドレスを set_array() に渡すという使い方があります．
+
+※ set_array() で指定したアドレスについて，
+Darts clone は複製したり管理したりしません．
+そのため，呼び出した側で適切にメモリを管理する必要があります．
+
+=== ダブル配列の破棄 ===
+
+{{{
+void clear();
+}}}
+
+ダブル配列を破棄し，メモリを確保している場合は解放します．
+
+=== サイズの取得 ===
+
+{{{
+std::size_t unit_size() const;
+std::size_t size() const;
+std::size_t total_size() const;
+std::size_t nonzero_size() const;
+}}}
+
+ダブル配列を構成する各要素のサイズや要素数などを返します．
+各メソッドの戻り値は以下のようになっています．
+
+|| *メソッド* || *戻り値* ||
+|| unit_size() || 各要素のサイズ ||
+|| size() || 要素数 ||
+|| total_size() || ダブル配列のサイズ（size() `*` unit_size()） ||
+|| nonzero_size() || 要素数 ||
+
+※ Darts の nonzero_size() は未使用要素の数を返しますが，
+Darts clone では要素数を返します．
+
+=== ダブル配列の構築 ===
+
+{{{
+int build(std::size_t num_keys, const key_type * const *keys,
+	const std::size_t *lengths = NULL, const value_type *values = NULL,
+	int (*progress_func)(std::size_t, std::size_t) = NULL);
+}}}
+
+num_keys に登録するキー数，
+keys には各キーへのポインタの配列，
 lengths には各キーの長さの配列，
 values には各キーに関連付ける値の配列を指定します．
 progress_func には，構築状況の表示に用いる関数を指定します．
 
 キーは辞書順に整列されている必要があります．
-values は負の値であっても構いません．
+values は 0 以上の整数のみを許容します．
 同じキーが複数ある場合，先に出現した方に対応する値が採用されます．
 
 lengths, values, progress_func は省略可能です．
-lengths を省略すると，0 が出現するまでの長さが採用されます．
+lengths を省略すると，バイナリ 0 が出現するまでの
+バイト数が各キーの長さとして採用されます．
 values を省略すると，各キーにはキーのインデックスが関連付けられます．
+先頭のキーに 0, 次のキーに 1 という関連付けになります．
 
-表示関数 progress_func には，2 つの size_type 型の整数が引数として渡されます．
+表示関数 progress_func には，
+2 つの std::size_t 型の整数が引数として渡されます．
 1 つ目が進捗，2 つ目が全体を表します．
 
-=== ファイル入出力用のメソッド ===
+=== ダブル配列の読み込み ===
 
 {{{
 int open(const char *file_name, const char *mode = "rb",
-	size_type offset = 0, size_type size = 0)
+	std::size_t offset = 0, std::size_t size = 0);
 }}}
 
-ダブル配列をファイルから入力します．
-file には入力ファイル名，mode には std::file() に渡す引数を指定します．
-offset にはダブル配列の書き込み位置を指定するようになっています．
+ダブル配列をファイルから読み込みます．
+file_name にはファイル名，mode には std::fopen() に渡す引数を指定します．
+offset にはダブル配列の開始位置を指定するようになっています．
 size にはダブル配列のサイズをバイト単位で指定することができます．
-ただし，実際に読み込むバイト数には影響ありません．
-メソッド size() の返す値を指定できるだけです．
+size を省略した場合，ファイル全体をダブル配列として読み込みます．
+
+=== ダブル配列の保存 ===
 
 {{{
 int save(const char *file_name, const char *mode = "wb",
-	size_type offset = 0) const
+	std::size_t offset = 0) const;
 }}}
 
 ダブル配列をファイルに出力します．
-file には出力ファイル名，mode には std::fopen() に渡す引数を指定します．
+file_name にはファイル名，mode には std::fopen() に渡す引数を指定します．
 offset を指定すると，ファイルの先頭 offset バイトをスキップした後で，
 ダブル配列をファイルに書き込みます．
 
-=== 検索用のメソッド ===
+=== 完全一致するキーの検索 ===
 
 {{{
-template <typename ResultType>
-void exactMatchSearch(const char_type *key, ResultType &result,
-	size_type length = 0, size_type agent = 0) const
+template <class U>
+inline void exactMatchSearch(const key_type *key, U &result,
+	std::size_t length = 0, std::size_t node_pos = 0) const;
 }}}
 
 入力文字列に完全一致するキーが登録されているかどうかを確認します．
 
 key には入力文字列，result には結果を受け取るためのオブジェクト，
 length には入力文字列の長さを指定します．
-length を省略すると，0 が出現するまでのバイト数が採用されます．
-agent には，traverse() により取得した検索位置を指定できます．
+length を省略すると，バイナリ 0 が出現するまでのバイト数が採用されます．
+node_pos には，traverse() により取得した検索位置を指定できます．
 
-!ResultType には，Darts::!DoubleArray::result_type と
-Darts::!DoubleArray::result_pair_type を指定できます．
-result_type を指定すると，キーと対応する値のみを取得できます．
+result の型としては，Darts::!DoubleArray::result_type と
+Darts::!DoubleArray::result_pair_type が利用できます．
+result_type を指定すると，キーと対応する値のみを取得します．
 一方，result_pair_type を指定すると，
-キーと対応する値に加えて，一致したキーの長さを取得できます．
+キーと対応する値に加えて，一致したキーの長さも取得できます．
 
 入力文字列が登録されていなかった場合，
 本来はキーと対応する値を格納すべき箇所に -1 を格納します．
 
 {{{
-template <typename ResultType>
-ResultType exactMatchSearch(const char_type *key,
-	size_type length = 0, size_type agent = 0) const
+template <class U>
+inline U exactMatchSearch(const key_type *key, std::size_t length = 0,
+	std::size_t node_pos = 0) const;
 }}}
 
 入力文字列に完全一致するキーが登録されているかどうかを確認します．
+
 結果を戻り値として受け取る点が上記のメソッドとは異なります．
 
 入力文字列が登録されていなかった場合，
 本来はキーと対応する値を格納すべき箇所に -1 を格納して返します．
 
+=== 文字列の前方部分に一致するキーの検索 ===
+
 {{{
-template <typename ResultType>
-size_type commonPrefixSearch(const char_type *key,
-	ResultType *results, size_type max_num_of_results,
-	size_type length = 0, size_type agent = 0) const
+template <class U>
+inline std::size_t commonPrefixSearch(const key_type *key, U *results,
+	std::size_t max_num_results, std::size_t length = 0,
+	std::size_t node_pos = 0) const;
 }}}
 
 key には検索文字列，results には検索結果を受け取るための配列を指定します．
-max_num_of_results には受け取る検索結果の数，
+max_num_results には受け取る検索結果の数，
 length には検索文字列の長さを指定します．
-length を省略すると，0 が出現するまでのバイト数が採用されます．
-agent には，traverse() により取得した検索位置を指定できます．
+length を省略すると，バイナリ 0 が出現するまでのバイト数が採用されます．
+node_pos には，traverse() により取得した検索位置を指定できます．
 
-戻り値は検索結果の数（マッチしたキーの数）になります．
+戻り値は検索結果の数（条件にマッチしたキーの数）になります．
 各キーに対応する値や各キーの長さは，results を参照することで取得できます．
-検索結果の数が max_num_of_results より大きい場合，
-max_num_of_results 個までを results に格納し，
+検索結果の数が max_num_results より大きい場合，
+max_num_results 個までを results に格納し，
 実際の検索結果の数が戻り値になります．
 
 {{{
-value_type traverse(const char_type *key, size_type &agent,
-	size_type &key_index, size_type length = 0) const
+inline value_type traverse(const key_type *key, std::size_t &node_pos,
+	std::size_t &key_pos, std::size_t length = 0) const;
 }}}
 
 入力文字列に従ってダブル配列を探索します．
 
 key には入力文字列，length には入力文字列の長さを指定します．
-length を省略すると，0 が出現するまでのバイト数が採用されます．
-agent にはダブル配列の探索位置，
-key_index には入力文字列の照合位置を指定します．
+length を省略すると，バイナリ 0 が出現するまでのバイト数が採用されます．
+node_pos にはダブル配列の探索位置，
+key_pos には入力文字列の照合位置を指定します．
 初期状態から探索を開始したい場合，
-agent と key_index に 0 を格納した状態で呼び出してください．
+node_pos と key_pos に 0 を格納した状態で呼び出してください．
 
-探索により完全一致するキーがあれば，対応する値を返します．
+探索により完全一致するキーがあれば，対応する値（0 以上）を返します．
 また，キーの終端に到達した場合は -1 を返し，
 途中で探索に失敗した場合は -2 を返します．
-
-=== その他のメソッド ===
-
-{{{
-void clear();
-}}}
-
-ダブル配列を破棄し，確保しているメモリを解放します．
-
-{{{
-const void *array() const;
-}}}
-
-ダブル配列の開始アドレスを返します．
-
-{{{
-void set_array(const void *ptr, size_t = 0);
-}}}
-
-ダブル配列の開始アドレスを指定します．
-array() により取得した配列を保存したファイルに対して
-mmap() を用いる場合などに使えます．
-Darts clone は，受け取ったメモリを複製したり管理したりしません．
-
-{{{
-size_t size() const;
-size_t unit_size() const;
-size_t nonzero_size() const;
-size_t total_size() const;;
-}}}
-
-ダブル配列の要素数や各要素のサイズなどを返します．
-各メソッドの戻り値は以下のようになっています．
-
-|| *メソッド* || *戻り値* ||
-|| size() || 要素数 ||
-|| unit_size() || 各要素のサイズ ||
-|| nonzero_size() || 要素数 ||
-|| total_size() || ダブル配列のサイズ（size() `*` unit_size()） ||

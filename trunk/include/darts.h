@@ -81,7 +81,7 @@ class DoubleArrayImpl
 public:
 	typedef T value_type;
 	typedef Details::char_type key_type;
-	typedef Details::value_type result_type;  // for compatibility.
+	typedef value_type result_type;  // for compatibility.
 
 	struct result_pair_type
 	{
