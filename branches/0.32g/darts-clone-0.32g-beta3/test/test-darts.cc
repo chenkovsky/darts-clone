@@ -158,7 +158,7 @@ void test_traverse(const T &dic,
 		std::size_t id = 0;
 		std::size_t key_pos = 0;
 		typename T::value_type result = 0;
-		for (std::size_t j = 0; j < lengths[i]; ++j)
+		for (std::size_t j = 0; key[j] != '\0'; ++j)
 		{
 			result = dic.traverse(key, id, key_pos, j + 1);
 			assert(result != -2);
@@ -174,9 +174,9 @@ void test_traverse(const T &dic,
 		std::size_t id = 0;
 		std::size_t key_pos = 0;
 		typename T::value_type result = 0;
-		for (std::size_t i = 0; i < it->length(); ++i)
+		for (std::size_t j = 0; key[j] != '\0'; ++j)
 		{
-			result = dic.traverse(key, id, key_pos, i + 1);
+			result = dic.traverse(key, id, key_pos, j + 1);
 			if (result == -2)
 				break;
 		}
@@ -253,7 +253,7 @@ int main()
 {
 	try
 	{
-		std::srand(static_cast<unsigned int>(	std::time(NULL)));
+		std::srand(std::time(NULL));
 
 		static const std::size_t NUM_VALID_KEYS = 1 << 16;
 		static const std::size_t NUM_INVALID_KEYS = 1 << 17;
