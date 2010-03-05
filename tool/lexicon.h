@@ -116,7 +116,8 @@ inline void Lexicon::sort()
 
 inline void Lexicon::randomize()
 {
-	Darts::MersenneTwister mt(std::time(NULL));
+	Darts::MersenneTwister mt(
+		static_cast<Darts::MersenneTwister::int_type>(std::time(NULL)));
 	std::random_shuffle(keys_.begin(), keys_.end(), mt);
 }
 

@@ -197,9 +197,15 @@ template <typename A, typename B, typename T, typename C>
 int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 	const char *mode, std::size_t offset, std::size_t size)
 {
+#ifdef _MSC_VER
+	std::FILE *file;
+	if (::fopen_s(&file, file_name, mode) != 0)
+		return -1;
+#else
 	std::FILE *file = std::fopen(file_name, mode);
 	if (file == NULL)
 		return -1;
+#endif
 
 	if (size == 0)
 	{
@@ -223,7 +229,7 @@ int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 	{
 		buf = new unit_type[size];
 	}
-	catch (const std::bad_alloc &ex)
+	catch (const std::bad_alloc &)
 	{
 		std::fclose(file);
 		DARTS_THROW("failed to open double-array: std::bad_alloc");
@@ -248,14 +254,20 @@ int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 
 template <typename A, typename B, typename T, typename C>
 int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
-	const char *mode, std::size_t offset) const
+	const char *mode, std::size_t) const
 {
 	if (size() == 0)
 		return -1;
 
+#ifdef _MSC_VER
+	std::FILE *file;
+	if (::fopen_s(&file, file_name, mode) != 0)
+		return -1;
+#else
 	std::FILE *file = std::fopen(file_name, mode);
 	if (file == NULL)
 		return -1;
+#endif
 
 	if (std::fwrite(array_, unit_size(), size(), file) != size())
 	{
@@ -886,7 +898,7 @@ inline void DawgBuilder::init()
 
 	num_states_ = 1;
 
-	nodes_[0].set_label('\xFF');
+	nodes_[0].set_label(0xFF);
 	node_stack_.push(0);
 }
 
@@ -1533,7 +1545,7 @@ inline void DoubleArrayBuilder::fix_block(id_type block_id)
 		if (!extras(id).is_fixed())
 		{
 			reserve_id(id);
-			units_[id].set_label(id ^ unused_offset);
+			units_[id].set_label(static_cast<uchar_type>(id ^ unused_offset));
 		}
 	}
 }

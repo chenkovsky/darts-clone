@@ -11,8 +11,7 @@ private:
 public:
 	typedef unsigned int int_type;
 
-	explicit MersenneTwister(int_type seed = 0)
-		: mt_(), mti_(0) { init(seed); }
+	explicit MersenneTwister(int_type seed = 0) : mti_(0) { init(seed); }
 
 	void init(int_type seed);
 

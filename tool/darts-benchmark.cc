@@ -20,13 +20,13 @@ int progress_bar(std::size_t current, std::size_t total)
 
 	if (prev != cur_percentage)
 	{
-		std::fprintf(::stderr, "Making double-array: %3d%% |%.*s%*s|",
+		std::fprintf(stderr, "Making double-array: %3d%% |%.*s%*s|",
 			cur_percentage, bar_len, bar, scale - bar_len, "");
 		if (cur_percentage >= 100)
-			std::fprintf(::stderr, "\n");
+			std::fprintf(stderr, "\n");
 		else
-			std::fprintf(::stderr, "\r");
-		std::fflush(::stderr);
+			std::fprintf(stderr, "\r");
+		std::fflush(stderr);
 	}
 
 	prev = cur_percentage;
