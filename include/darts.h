@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <exception>
 #include <new>
-#include <utility>
 
 #define DARTS_INT_TO_STR(value) #value
 #define DARTS_LINE_TO_STR(line) DARTS_INT_TO_STR(line)
@@ -438,7 +437,7 @@ public:
 	bool empty() const { return array_ == NULL; }
 
 	void clear();
-	void swap(AutoArray *array) { std::swap(array_, array->array_); }
+	void swap(AutoArray *array);
 	void reset(T *array = NULL) { AutoArray(array).swap(this); }
 
 private:
@@ -457,6 +456,15 @@ void AutoArray<T>::clear()
 		delete[] array_;
 		array_ = NULL;
 	}
+}
+
+template <typename T>
+void AutoArray<T>::swap(AutoArray *array)
+{
+	T *temp;
+	temp = array_;
+	array_ = array->array_;
+	array->array_ = temp;
 }
 
 //
