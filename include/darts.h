@@ -757,6 +757,68 @@ inline id_type BitVector::pop_count(id_type unit)
 }
 
 //
+// Keyset.
+//
+
+template <typename T>
+class Keyset
+{
+public:
+	Keyset(std::size_t num_keys, const char_type * const *keys,
+		const std::size_t *lengths, const T *values) :
+		num_keys_(num_keys), keys_(keys), lengths_(lengths), values_(values) {}
+
+	std::size_t num_keys() const { return num_keys_; }
+	const char_type *keys(std::size_t id) const { return keys_[id]; }
+	uchar_type keys(std::size_t key_id, std::size_t char_id) const;
+
+	bool has_lengths() const { return lengths_ != NULL; }
+	std::size_t lengths(std::size_t id) const;
+
+	bool has_values() const { return values_ != NULL; }
+	const value_type values(std::size_t id) const;
+
+private:
+	std::size_t num_keys_;
+	const char_type * const * keys_;
+	const std::size_t *lengths_;
+	const T *values_;
+
+	// Disallows copies.
+	Keyset(const Keyset &);
+	Keyset &operator=(const Keyset &);
+};
+
+template <typename T>
+inline uchar_type Keyset<T>::keys(
+	std::size_t key_id, std::size_t char_id) const
+{
+	if (has_lengths() && char_id >= lengths_[key_id])
+		return '\0';
+	return keys_[key_id][char_id];
+}
+
+template <typename T>
+inline std::size_t Keyset<T>::lengths(std::size_t id) const
+{
+	if (has_lengths())
+		return lengths_[id];
+
+	std::size_t length = 0;
+	while (keys_[id][length] != '\0')
+		++length;
+	return length;
+}
+
+template <typename T>
+inline const value_type Keyset<T>::values(std::size_t id) const
+{
+	if (has_values())
+		return static_cast<value_type>(values_[id]);
+	return static_cast<value_type>(id);
+}
+
+//
 // Node of Directed Acyclic Word Graph (DAWG).
 //
 
@@ -942,10 +1004,11 @@ inline void DawgBuilder::insert(const char *key, std::size_t length,
 		if (child_id == 0)
 			break;
 
-		uchar_type key_label = static_cast<uchar_type>(
-			(key_pos < length) ? key[key_pos] : '\0');
-		uchar_type unit_label = nodes_[child_id].label();
+		uchar_type key_label = static_cast<uchar_type>(key[key_pos]);
+		if (key_pos < length && key_label == '\0')
+			DARTS_THROW("failed to insert key: invalid null character");
 
+		uchar_type unit_label = nodes_[child_id].label();
 		if (key_label < unit_label)
 			DARTS_THROW("failed to insert key: wrong key order");
 		else if (key_label > unit_label)
@@ -1251,11 +1314,13 @@ private:
 class DoubleArrayBuilder
 {
 public:
-	DoubleArrayBuilder() : units_(), extras_(), labels_(),
-		table_(), extras_head_(0) {}
+	explicit DoubleArrayBuilder(int (*progress_func)(
+		std::size_t, std::size_t)) : progress_func_(progress_func),
+		units_(), extras_(), labels_(), table_(), extras_head_(0) {}
 	~DoubleArrayBuilder() { clear(); }
 
-	void build(const DawgBuilder &dawg);
+	template <typename T>
+	void build(const Keyset<T> &keyset);
 	void copy(std::size_t *size_ptr, DoubleArrayUnit **buf_ptr) const;
 
 	void clear();
@@ -1271,6 +1336,7 @@ private:
 	typedef DoubleArrayBuilderUnit unit_type;
 	typedef DoubleArrayBuilderExtraUnit extra_type;
 
+	int (* const progress_func_)(std::size_t, std::size_t);
 	AutoPool<unit_type> units_;
 	AutoArray<extra_type> extras_;
 	AutoPool<uchar_type> labels_;
@@ -1287,11 +1353,22 @@ private:
 	{ return extras_[id % NUM_EXTRAS]; }
 	extra_type &extras(id_type id) { return extras_[id % NUM_EXTRAS]; }
 
-	bool build_double_array(const DawgBuilder &dawg,
+	template <typename T>
+	void build_dawg(const Keyset<T> &keyset, DawgBuilder *dawg_builder);
+	void build_from_dawg(const DawgBuilder &dawg);
+	void build_from_dawg(const DawgBuilder &dawg,
+		id_type dawg_id, id_type dic_id);
+	id_type arrange_from_dawg(const DawgBuilder &dawg,
 		id_type dawg_id, id_type dic_id);
 
-	id_type arrange_children(const DawgBuilder &dawg,
-		id_type dawg_id, id_type dic_id);
+	template <typename T>
+	void build_from_keyset(const Keyset<T> &keyset);
+	template <typename T>
+	void build_from_keyset(const Keyset<T> &keyset, std::size_t begin,
+		std::size_t end, std::size_t depth, id_type dic_id);
+	template <typename T>
+	id_type arrange_from_keyset(const Keyset<T> &keyset, std::size_t begin,
+		std::size_t end, std::size_t depth, id_type dic_id);
 
 	id_type find_valid_offset(id_type id) const;
 	bool is_valid_offset(id_type id, id_type offset) const;
@@ -1303,32 +1380,18 @@ private:
 	void fix_block(id_type block_id);
 };
 
-inline void DoubleArrayBuilder::build(const DawgBuilder &dawg)
+template <typename T>
+void DoubleArrayBuilder::build(const Keyset<T> &keyset)
 {
-	std::size_t num_units = 1;
-	while (num_units < dawg.size())
-		num_units <<= 1;
-	units_.reserve(num_units);
-
-	table_.reset(new id_type[dawg.num_intersections()]);
-	for (std::size_t i = 0; i < dawg.num_intersections(); ++i)
-		table_[i] = 0;
-
-	extras_.reset(new extra_type[NUM_EXTRAS]);
-
-	reserve_id(0);
-	extras(0).set_is_used(true);
-	units_[0].set_offset(1);
-	units_[0].set_label('\0');
-
-	if (dawg.child(dawg.root()) != 0)
-		build_double_array(dawg, dawg.root(), 0);
-
-	fix_all_blocks();
-
-	extras_.clear();
-	labels_.clear();
-	table_.clear();
+	if (keyset.has_values())
+	{
+		Details::DawgBuilder dawg_builder;
+		build_dawg(keyset, &dawg_builder);
+		build_from_dawg(dawg_builder);
+		dawg_builder.clear();
+	}
+	else
+		build_from_keyset(keyset);
 }
 
 inline void DoubleArrayBuilder::copy(std::size_t *size_ptr,
@@ -1354,12 +1417,52 @@ inline void DoubleArrayBuilder::clear()
 	extras_head_ = 0;
 }
 
-inline bool DoubleArrayBuilder::build_double_array(const DawgBuilder &dawg,
+template <typename T>
+void DoubleArrayBuilder::build_dawg(const Keyset<T> &keyset,
+	DawgBuilder *dawg_builder)
+{
+	dawg_builder->init();
+	for (std::size_t i = 0; i < keyset.num_keys(); ++i)
+	{
+		dawg_builder->insert(keyset.keys(i), keyset.lengths(i),
+			keyset.values(i));
+		if (progress_func_ != NULL)
+			progress_func_(i + 1, keyset.num_keys() + 1);
+	}
+	dawg_builder->finish();
+}
+
+inline void DoubleArrayBuilder::build_from_dawg(const DawgBuilder &dawg)
+{
+	std::size_t num_units = 1;
+	while (num_units < dawg.size())
+		num_units <<= 1;
+	units_.reserve(num_units);
+
+	table_.reset(new id_type[dawg.num_intersections()]);
+	for (std::size_t i = 0; i < dawg.num_intersections(); ++i)
+		table_[i] = 0;
+
+	extras_.reset(new extra_type[NUM_EXTRAS]);
+
+	reserve_id(0);
+	extras(0).set_is_used(true);
+	units_[0].set_offset(1);
+	units_[0].set_label('\0');
+
+	if (dawg.child(dawg.root()) != 0)
+		build_from_dawg(dawg, dawg.root(), 0);
+
+	fix_all_blocks();
+
+	extras_.clear();
+	labels_.clear();
+	table_.clear();
+}
+
+inline void DoubleArrayBuilder::build_from_dawg(const DawgBuilder &dawg,
 	id_type dawg_id, id_type dic_id)
 {
-	if (dawg.is_leaf(dawg_id))
-		return true;
-
 	id_type dawg_child_id = dawg.child(dawg_id);
 	if (dawg.is_intersection(dawg_child_id))
 	{
@@ -1373,33 +1476,29 @@ inline bool DoubleArrayBuilder::build_double_array(const DawgBuilder &dawg,
 				if (dawg.is_leaf(dawg_child_id))
 					units_[dic_id].set_has_leaf(true);
 				units_[dic_id].set_offset(offset);
-				return true;
+				return;
 			}
 		}
 	}
 
-	id_type offset = arrange_children(dawg, dawg_id, dic_id);
-	if (offset == 0)
-		return false;
-
+	id_type offset = arrange_from_dawg(dawg, dawg_id, dic_id);
 	if (dawg.is_intersection(dawg_child_id))
 		table_[dawg.intersection_id(dawg_child_id)] = offset;
 
 	do
 	{
-		id_type dic_child_id = offset ^ dawg.label(dawg_child_id);
-		if (!build_double_array(dawg, dawg_child_id, dic_child_id))
-			return false;
+		uchar_type child_label = dawg.label(dawg_child_id);
+		id_type dic_child_id = offset ^ child_label;
+		if (child_label != '\0')
+			build_from_dawg(dawg, dawg_child_id, dic_child_id);
 		dawg_child_id = dawg.sibling(dawg_child_id);
 	} while (dawg_child_id != 0);
-
-	return true;
 }
 
-inline id_type DoubleArrayBuilder::arrange_children(const DawgBuilder &dawg,
+inline id_type DoubleArrayBuilder::arrange_from_dawg(const DawgBuilder &dawg,
 	id_type dawg_id, id_type dic_id)
 {
-	labels_.clear();
+	labels_.resize(0);
 
 	id_type dawg_child_id = dawg.child(dawg_id);
 	while (dawg_child_id != 0)
@@ -1426,6 +1525,117 @@ inline id_type DoubleArrayBuilder::arrange_children(const DawgBuilder &dawg,
 			units_[dic_child_id].set_label(labels_[i]);
 
 		dawg_child_id = dawg.sibling(dawg_child_id);
+	}
+	extras(offset).set_is_used(true);
+
+	return offset;
+}
+
+template <typename T>
+void DoubleArrayBuilder::build_from_keyset(const Keyset<T> &keyset)
+{
+	std::size_t num_units = 1;
+	while (num_units < keyset.num_keys())
+		num_units <<= 1;
+	units_.reserve(num_units);
+
+	extras_.reset(new extra_type[NUM_EXTRAS]);
+
+	reserve_id(0);
+	extras(0).set_is_used(true);
+	units_[0].set_offset(1);
+	units_[0].set_label('\0');
+
+	if (keyset.num_keys() > 0)
+		build_from_keyset(keyset, 0, keyset.num_keys(), 0, 0);
+
+	fix_all_blocks();
+
+	extras_.clear();
+	labels_.clear();
+}
+
+template <typename T>
+void DoubleArrayBuilder::build_from_keyset(const Keyset<T> &keyset,
+	std::size_t begin, std::size_t end, std::size_t depth, id_type dic_id)
+{
+	id_type offset = arrange_from_keyset(keyset, begin, end, depth, dic_id);
+
+	while (begin < end)
+	{
+		if (keyset.keys(begin, depth) != '\0')
+			break;
+		++begin;
+	}
+	if (begin == end)
+		return;
+
+	std::size_t last_begin = begin;
+	uchar_type last_label = keyset.keys(begin, depth);
+	while (++begin < end)
+	{
+		uchar_type label = keyset.keys(begin, depth);
+		if (label != last_label)
+		{
+			build_from_keyset(keyset, last_begin, begin,
+				depth + 1, offset ^ last_label);
+			last_begin = begin;
+			last_label = keyset.keys(begin, depth);
+		}
+	}
+	build_from_keyset(keyset, last_begin, end, depth + 1, offset ^ last_label);
+}
+
+template <typename T>
+id_type DoubleArrayBuilder::arrange_from_keyset(const Keyset<T> &keyset,
+	std::size_t begin, std::size_t end, std::size_t depth, id_type dic_id)
+{
+	labels_.resize(0);
+
+	value_type value = -1;
+	for (std::size_t i = begin; i < end; ++i)
+	{
+		uchar_type label = keyset.keys(i, depth);
+		if (label == '\0')
+		{
+			if (keyset.has_lengths() && depth < keyset.lengths(i))
+			{
+				DARTS_THROW("failed to build double-array: "
+					"invalid null character");
+			}
+			else if (keyset.values(i) < 0)
+				DARTS_THROW("failed to build double-array: negative value");
+
+			if (value == -1)
+				value = keyset.values(i);
+			if (progress_func_ != NULL)
+				progress_func_(i + 1, keyset.num_keys());
+		}
+
+		if (labels_.empty())
+			labels_.append(label);
+		else if (label != labels_[labels_.size() - 1])
+		{
+			if (label < labels_[labels_.size() - 1])
+				DARTS_THROW("failed to build double-array: wrong key order");
+			labels_.append(label);
+		}
+	}
+
+	id_type offset = find_valid_offset(dic_id);
+	units_[dic_id].set_offset(dic_id ^ offset);
+
+	for (std::size_t i = 0; i < labels_.size(); ++i)
+	{
+		id_type dic_child_id = offset ^ labels_[i];
+		reserve_id(dic_child_id);
+		if (labels_[i] == '\0')
+		{
+			units_[dic_id].set_has_leaf(true);
+			units_[dic_child_id].set_value(value);
+		}
+		else
+			units_[dic_child_id].set_label(labels_[i]);
 	}
 	extras(offset).set_is_used(true);
 
@@ -1569,36 +1779,14 @@ int DoubleArrayImpl<A, B, T, C>::build(std::size_t num_keys,
 	const key_type * const *keys, const std::size_t *lengths,
 	const value_type *values, int (*progress_func)(std::size_t, std::size_t))
 {
-	Details::DawgBuilder dawg_builder;
+	Details::Keyset<value_type> keyset(num_keys, keys, lengths, values);
 
-	dawg_builder.init();
-	for (std::size_t i = 0; i < num_keys; ++i)
-	{
-		std::size_t length = 0;
-		if (lengths != NULL)
-			length = lengths[i];
-		else
-		{
-			while (keys[i][length] != '\0')
-				++length;
-		}
-
-		dawg_builder.insert(keys[i], length,
-			(values != NULL) ? static_cast<int>(values[i]) : i);
-
-		if (progress_func != NULL)
-			progress_func(i + 1, num_keys + 1);
-	}
-	dawg_builder.finish();
+	Details::DoubleArrayBuilder builder(progress_func);
+	builder.build(keyset);
 
 	std::size_t size = 0;
 	unit_type *buf = NULL;
-
-	Details::DoubleArrayBuilder double_array_builder;
-	double_array_builder.build(dawg_builder);
-
-	dawg_builder.clear();
-	double_array_builder.copy(&size, &buf);
+	builder.copy(&size, &buf);
 
 	clear();
 
