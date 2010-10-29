@@ -2,13 +2,13 @@ AM_CXXFLAGS = -Wall -Weffc++ -I../include
 
 TESTS = \
 	test-darts \
-	test-tool.sh
+	test-tools.sh
 
 noinst_PROGRAMS = test-darts
 
 test_darts_SOURCES = test-darts.cc
 
-dist_noinst_DATA = test-tool.sh
+dist_noinst_DATA = test-tools.sh
 
 EXTRA_DIST = \
 	correct-dic \
