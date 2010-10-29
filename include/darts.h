@@ -1,5 +1,3 @@
-// Copyright 2010 Susumu Yata <syata@acm.org>
-
 #ifndef DARTS_H_
 #define DARTS_H_
 
@@ -1440,7 +1438,7 @@ class DoubleArrayBuilder {
   typedef DoubleArrayBuilderUnit unit_type;
   typedef DoubleArrayBuilderExtraUnit extra_type;
 
-  int (* const progress_func_)(std::size_t, std::size_t);
+  progress_func_type progress_func_;
   AutoPool<unit_type> units_;
   AutoArray<extra_type> extras_;
   AutoPool<uchar_type> labels_;

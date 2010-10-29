@@ -1,1 +1,1 @@
-SUBDIRS = tool test
+SUBDIRS = tools tests
