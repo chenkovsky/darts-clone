@@ -1,6 +1,6 @@
-Darts-clone: A clone of the Darts (Double-ARray Trie System)
+== Darts-clone: A clone of the Darts (Double-ARray Trie System) ==
 
-This project provides a clone of the Darts (Double-ARray Trie System),
+The Darts-clone is a clone of the Darts (Double-ARray Trie System),
 which is a C++ header library for a double-array structure.
 
 The major advantages of the Darts-clone are as follows:
@@ -15,6 +15,7 @@ The major advantages of the Darts-clone are as follows:
    The Darts-clone uses a directed acyclic word graph (DAWG), which is
    derived from a trie by merging its common subtrees. On the other hand,
    the Darts uses a trie.
+
    Therefore, if there are many duplicate values, the Darts-clone needs
    less units than the Darts.
 
@@ -23,5 +24,30 @@ the compaction does not degrade the search performance.
 
 Project URL: http://code.google.com/p/darts-clone/
 
---
-Susumu Yata <syata@acm.org>
+----
+
+== Darts-clone: Darts（Double-ARay Trie System）のクローン ==
+
+Darts-clone はダブル配列の C++ ヘッダライブラリである
+Darts のクローンであり，以下のような特長を持っています．
+
+1. コンパクトな辞書
+
+   Darts-clone が用いる要素のサイズは Darts の半分なので，
+   辞書のサイズは単純に半減します．
+
+2. さらにコンパクトな辞書
+
+   Darts がトライというデータ構造を採用しているのに対して，
+   Darts-clone は Directed Acyclic Word Graph（DAWG）という
+   データ構造を採用しています．
+
+   DAWG はトライに含まれる共通部分をマージして得られる
+   データ構造なので，キーに関連付ける値に重複が多ければ，
+   より少ない要素で辞書を構成できるようになります．
+
+Darts-clone には辞書をコンパクトに構成できるという利点があり，
+辞書の構築には時間がかかるものの，検索の機能や時間には影響が
+ありません．そのため，低いリスクで辞書を小さくできます．
+
+プロジェクト URL: http://code.google.com/p/darts-clone/
