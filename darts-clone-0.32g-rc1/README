@@ -1,0 +1,27 @@
+Darts-clone: A clone of the Darts (Double-ARray Trie System)
+
+This project provides a clone of the Darts (Double-ARray Trie System),
+which is a C++ header library for a double-array structure.
+
+The major advantages of the Darts-clone are as follows:
+
+1. Compact dictionary
+
+   The Darts-clone uses half-size units. This simply halves the size of
+   dictionaries.
+
+2. More compact dictionary
+
+   The Darts-clone uses a directed acyclic word graph (DAWG), which is
+   derived from a trie by merging its common subtrees. On the other hand,
+   the Darts uses a trie.
+   Therefore, if there are many duplicate values, the Darts-clone needs
+   less units than the Darts.
+
+The Darts-clone thus makes dictionaries more compact. And surprisingly,
+the compaction does not degrade the search performance.
+
+Project URL: http://code.google.com/p/darts-clone/
+
+--
+Susumu Yata <syata@acm.org>
