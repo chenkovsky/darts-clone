@@ -5,6 +5,8 @@
 #include <exception>
 #include <new>
 
+#define DARTS_VERSION "0.32"
+
 // DARTS_THROW() throws a <Darts::Exception> whose message starts with the
 // file name and the line number. For example, DARTS_THROW("error message") at
 // line 123 of "darts.h" throws a <Darts::Exception> which has a pointer to
@@ -22,7 +24,7 @@ namespace Darts {
 namespace Details {
 
 // This header assumes that <int> and <unsigned int> are 32-bit integer types.
-
+//
 // The darts-clone keeps values associated with keys. The type of the values is
 // <value_type>. Note that the values must be positive integers because the
 // most significant bit (MSB) of each value is used to represent whether the
@@ -32,17 +34,18 @@ typedef char char_type;
 typedef unsigned char uchar_type;
 typedef int value_type;
 
-// The main structure of the darts-clone is represented by an array of
-// <DoubleArrayUnit>s, and the type is actually a wrapper of <id_type>.
+// The main structure of the darts-clone is an array of <DoubleArrayUnit>s, and
+// the unit type is actually a wrapper of <id_type>.
 typedef unsigned int id_type;
 
-// <progress_func_type> is used as an argument of <DoubleArray>::build().
+// <progress_func_type> is the type of callback functions for reporting the
+// progress of building a dictionary. See also build() of <DoubleArray>.
 // The 1st argument receives the progress value and the 2nd argument receives
 // the maximum progress value. A usage example is to show the progress
-// percentage, 100.0 * (the 1st argument) / (the 2nd argument)%.
+// percentage, 100.0 * (the 1st argument) / (the 2nd argument).
 typedef int (*progress_func_type)(std::size_t, std::size_t);
 
-// <DoubleArrayUnit> is the type of double-array unit and is a wrapper of
+// <DoubleArrayUnit> is the type of double-array units and is a wrapper of
 // <id_type> in practice.
 class DoubleArrayUnit {
  public:
@@ -53,9 +56,8 @@ class DoubleArrayUnit {
   bool has_leaf() const {
     return ((unit_ >> 8) & 1) == 1;
   }
-  // value() returns the value stored in the unit, and thus the value() is
-  // available only for leaf units. Only this method is available for leaf
-  // units.
+  // value() returns the value stored in the unit, thus value() is available
+  // only for leaf units. Only this method is available for leaf units.
   value_type value() const {
     return static_cast<value_type>(unit_ & ((1U << 31) - 1));
   }
@@ -116,8 +118,7 @@ class DoubleArrayImpl {
  public:
   // Even if this <value_type> is changed, the internal value type is still
   // <Darts::Details::value_type>. Other types, such as 64-bit integer types
-  // and floating-point number types, should not be used. This value type is
-  // actually for compatibility.
+  // and floating-point number types, should not be used.
   typedef T value_type;
   // A key is reprenseted by a sequence of <key_type>s. For example,
   // exactMatchSearch() takes a <const key_type *>.
@@ -143,10 +144,10 @@ class DoubleArrayImpl {
 
   // <DoubleArrayImpl> has 2 kinds of set_result()s. The 1st set_result() is to
   // set a value to a <value_type>. The 2nd set_result() is to set a value and
-  // a length to a <result_pair_type>. By using the set_result()s, search
-  // methods can return results in the same way.
+  // a length to a <result_pair_type>. By using set_result()s, search methods
+  // can return results in the same way.
   // Why the set_result()s are non-static? It is for compatibility.
-
+  //
   // The 1st set_result() takes a length as the 3rd argument but it is not
   // used. If a compiler does a good job, codes for getting the length may be
   // removed.
@@ -164,7 +165,7 @@ class DoubleArrayImpl {
   // array and then sets a new array. This function is useful to set a memory-
   // mapped array. Note that the array set by set_array() is not freed in
   // clear() and the destructor of <DoubleArrayImpl>.
-  // set_array() can also set the size of the given array but the size is not
+  // set_array() can also set the size of the new array but the size is not
   // used in search methods. So it works well even if the 2nd argument is 0 or
   // omitted. Remember that size() and total_size() returns 0 in such a case.
   void set_array(const void *ptr, std::size_t size = 0) {
@@ -203,8 +204,8 @@ class DoubleArrayImpl {
   std::size_t total_size() const {
     return unit_size() * size();
   }
-  // nonzero_size() exists for compatibility. It returns the number of units as
-  // is because it takes long time to count the number of non-zero units.
+  // nonzero_size() exists for compatibility. It always returns the number of
+  // units because it takes long time to count the number of non-zero units.
   std::size_t nonzero_size() const {
     return size();
   }
@@ -219,7 +220,7 @@ class DoubleArrayImpl {
   // `progress_func' is a pointer to a callback function. If it is not NULL,
   // it will be called in build() so that the caller can check the progress of
   // dictionary construction. For details, please see the definition of
-  // Details::progress_func_type.
+  // <Darts::Details::progress_func_type>.
   // The return value of build() is 0, and it indicates the success of the
   // operation. Otherwise, build() throws a <Darts::Exception>, which is a
   // derived class of <std::exception>.

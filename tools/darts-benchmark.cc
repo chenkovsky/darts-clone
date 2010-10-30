@@ -160,7 +160,7 @@ void benchmark_lexicon(const Darts::BenchmarkConfig &config,
   Darts::Lexicon randomized_lexicon(lexicon);
   randomized_lexicon.randomize();
 
-  std::printf(" %6lukb", dic->total_size() / 1000);
+  std::printf(" %6ukb", static_cast<unsigned int>(dic->total_size() / 1000));
   std::printf(" %6.0fns", 1e+9 * timer.elapsed() / lexicon.size());
   std::fflush(stdout);
 
