@@ -3,7 +3,7 @@
 = 変更履歴 =
 
  * 2010/10/31
-  * Wiki の [ClassInterface] を更新．
+  * Wiki の [ClassInterface], [Introduction], [Applications] を更新．
  * 2010/10/30
   * darts-clone-0.32g-rc1.tar.gz をアップロード．
   * コーディング規約を変更．

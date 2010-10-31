@@ -1,46 +1,34 @@
-#summary Darts clone の説明と使い方．
+#summary Darts-clone の説明と使い方．
 #labels Phase-Design,Featured
 
 = はじめに =
 
-== Darts clone の位置づけ ==
+== Darts-clone の位置づけ ==
 
-Darts clone は，ダブル配列のライブラリ Darts（Double-ARray Trie System）
-のクローンとして開発された C++ ヘッダライブラリです．
-Darts に対する利点は，辞書を小さくできることです．
+Darts-clone は Darts（Double-ARray Trie System）というライブラリのクローンです．どちらもダブル配列の実装になっていますが，Darts がトライをダブル配列で実現しているのに対し，Darts-clone は DAWG（Directed Acyclic Word Graph）をダブル配列で実現しています．また，ダブル配列を構成する要素を小さくすることにより，辞書のサイズを抑えることに成功しています．これらの違いにより，検索の機能や速度を落とすことなく，辞書を小さくすることができます．
 
  * Darts: Double-ARray Trie System
   * http://chasen.org/~taku/software/darts/
 
 == 注意事項 ==
 
-Darts clone 0.32e より前のバージョンでは，
-キー集合の規模や使用できる型に制限がありました．
-
-== その他の変更点 ==
-
-Darts clone 0.32e 以降では，Darts とほぼ同じインタフェースになっています．
+Darts-clone 0.32e より前のバージョンでは，登録できるキーの数に対する制限やインタフェースの違いがありました．最新版では解決されています．
 
 = 使い方 =
 
-基本的な使い方は Darts と同じで，ヘッダを include するだけです．
-darts.h を単純に置き換えることができます．
-ただし，バイナリ辞書には互換性がないため，再構築が必要となります．
+Darts-clone を使う方法は，Darts と同じく，インストールしてから `#include <darts.h>` とするだけです．インストールしたくないときは，`darts.h` をコピーして `#include "darts.h"` とするだけでも問題ありません．辞書については，互換性がないので，Darts から Darts-clone への移行に際して再構築が必要になります．
 
-インタフェースの詳細は [ClassInterface] を参考にしてください．
+Darts-clone の主要なクラスである `Darts::DoubleArray` の使い方については，[ClassInterface] を参照してください．
 
 == !MeCab への組み込み方 ==
 
-mecab-0.98pre3 の場合，mecab-0.98pre3.tar.gz を復元すると
-mecab-0.98pre3/src の中に darts.h があります．
-このファイルを Darts clone の darts.h で置き換えれば，
-後は通常の手順どおりにインストールできます．
+mecab-0.98 の場合，ソースコードのアーカイブである mecab-0.98.tar.gz を展開して，mecab-0.98/src の中にある `darts.h` を Darts-clone の `darts.h` で置き換えれば，後は通常の手順どおりにインストールできます．
 
-詳細は [Applications] を参考にしてください．
+インストール方法の詳細については [Applications] を参照してください．
 
 = 変更履歴 =
 
-変更履歴は [ChangeLog] を参照してください．
+変更履歴は [ChangeLog] にあります．
 
 = 参考文献 =
 

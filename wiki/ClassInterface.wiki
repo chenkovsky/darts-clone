@@ -1,5 +1,5 @@
 #summary Darts clone のインタフェース
-#labels Phase-Design
+#labels Phase-Design,Featured
 
 = 概要 =
 
