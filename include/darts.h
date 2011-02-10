@@ -25,7 +25,7 @@ namespace Details {
 
 // This header assumes that <int> and <unsigned int> are 32-bit integer types.
 //
-// The darts-clone keeps values associated with keys. The type of the values is
+// Darts-clone keeps values associated with keys. The type of the values is
 // <value_type>. Note that the values must be positive integers because the
 // most significant bit (MSB) of each value is used to represent whether the
 // corresponding unit is a leaf or not. Also, the keys are represented by
@@ -34,8 +34,8 @@ typedef char char_type;
 typedef unsigned char uchar_type;
 typedef int value_type;
 
-// The main structure of the darts-clone is an array of <DoubleArrayUnit>s, and
-// the unit type is actually a wrapper of <id_type>.
+// The main structure of Darts-clone is an array of <DoubleArrayUnit>s, and the
+// unit type is actually a wrapper of <id_type>.
 typedef unsigned int id_type;
 
 // <progress_func_type> is the type of callback functions for reporting the
@@ -45,19 +45,19 @@ typedef unsigned int id_type;
 // percentage, 100.0 * (the 1st argument) / (the 2nd argument).
 typedef int (*progress_func_type)(std::size_t, std::size_t);
 
-// <DoubleArrayUnit> is the type of double-array units and is a wrapper of
+// <DoubleArrayUnit> is the type of double-array units and it is a wrapper of
 // <id_type> in practice.
 class DoubleArrayUnit {
  public:
   DoubleArrayUnit() : unit_() {}
 
-  // has_leaf() returns if a leaf unit is immediately derived from the unit
-  // (true) or not (false).
+  // has_leaf() returns whether a leaf unit is immediately derived from the
+  // unit (true) or not (false).
   bool has_leaf() const {
     return ((unit_ >> 8) & 1) == 1;
   }
-  // value() returns the value stored in the unit, thus value() is available
-  // only for leaf units. Only this method is available for leaf units.
+  // value() returns the value stored in the unit, and thus value() is
+  // available when and only when the unit is a leaf unit.
   value_type value() const {
     return static_cast<value_type>(unit_ & ((1U << 31) - 1));
   }
@@ -79,8 +79,8 @@ class DoubleArrayUnit {
   // Copyable.
 };
 
-// The darts-clone throws an <Exception> for memory allocation failure, invalid
-// arguments or too large offset. The last case means that there are too many
+// Darts-clone throws an <Exception> for memory allocation failure, invalid
+// arguments or a too large offset. The last case means that there are too many
 // keys in the given set of keys. Note that the `msg' of <Exception> must be a
 // constant or static string because an <Exception> keeps only a pointer to
 // that string.
@@ -104,7 +104,7 @@ class Exception : public std::exception {
 
 }  // namespace Details
 
-// <DoubleArrayImpl> is the interface of the darts-clone. Note that other
+// <DoubleArrayImpl> is the interface of Darts-clone. Note that other
 // classes should not be accessed from outside.
 //
 // <DoubleArrayImpl> has 4 template arguments but only the 3rd one is used as
@@ -145,7 +145,7 @@ class DoubleArrayImpl {
   // <DoubleArrayImpl> has 2 kinds of set_result()s. The 1st set_result() is to
   // set a value to a <value_type>. The 2nd set_result() is to set a value and
   // a length to a <result_pair_type>. By using set_result()s, search methods
-  // can return results in the same way.
+  // can return the 2 kinds of results in the same way.
   // Why the set_result()s are non-static? It is for compatibility.
   //
   // The 1st set_result() takes a length as the 3rd argument but it is not
@@ -215,8 +215,8 @@ class DoubleArrayImpl {
   // `values' is NULL, the index in `keys' is associated with each key, i.e.
   // the ith key has (i - 1) as its value.
   // Note that the key-value pairs must be arranged in key order and the values
-  // must not be negative. Also, if there are same keys, only the first pair
-  // will be stored in the resultant dictionary.
+  // must not be negative. Also, if there are duplicate keys, only the first
+  // pair will be stored in the resultant dictionary.
   // `progress_func' is a pointer to a callback function. If it is not NULL,
   // it will be called in build() so that the caller can check the progress of
   // dictionary construction. For details, please see the definition of
@@ -225,8 +225,8 @@ class DoubleArrayImpl {
   // operation. Otherwise, build() throws a <Darts::Exception>, which is a
   // derived class of <std::exception>.
   // build() uses another construction algorithm if `values' is not NULL. In
-  // this case, the darts-clone uses a Directed Acyclic Word Graph (DAWG)
-  // instead of a trie because a DAWG is likely to be more compact than a trie.
+  // this case, Darts-clone uses a Directed Acyclic Word Graph (DAWG) instead
+  // of a trie because a DAWG is likely to be more compact than a trie.
   int build(std::size_t num_keys, const key_type * const *keys,
       const std::size_t *lengths = NULL, const value_type *values = NULL,
       Details::progress_func_type progress_func = NULL);
@@ -273,7 +273,7 @@ class DoubleArrayImpl {
   // commonPrefixSearch() searches for keys which match a prefix of the given
   // string. If `length' is 0, `key' is handled as a zero-terminated string.
   // The values and the lengths of at most `max_num_results' matched keys are
-  // stored in results. And commonPrefixSearch() returns the number of matched
+  // stored in `results'. commonPrefixSearch() returns the number of matched
   // keys. Note that the return value can be larger than `max_num_results' if
   // there are more than `max_num_results' matches. If you want to get all the
   // results, allocate more spaces and call commonPrefixSearch() again.
@@ -283,7 +283,7 @@ class DoubleArrayImpl {
       std::size_t max_num_results, std::size_t length = 0,
       std::size_t node_pos = 0) const;
 
-  // In the darts-clone, a dictionary is a deterministic finite-state automaton
+  // In Darts-clone, a dictionary is a deterministic finite-state automaton
   // (DFA) and traverse() tests transitions on the DFA. The initial state is
   // `node_pos' and traverse() chooses transitions labeled key[key_pos],
   // key[key_pos + 1], ... in order. If there is not a transition labeled
@@ -312,12 +312,12 @@ class DoubleArrayImpl {
 };
 
 // <DoubleArray> is the typical instance of <DoubleArrayImpl>. It uses <int>
-// as the type of values and and is suitable for most cases.
+// as the type of values and it is suitable for most cases.
 typedef DoubleArrayImpl<void, void, int, void> DoubleArray;
 
-// The interface section ends here. For using the darts-clone, there is no need
-// to read the remaining section which gives the implementation of the
-// darts-clone.
+// The interface section ends here. For using Darts-clone, there is no need
+// to read the remaining section, which gives the implementation of
+// Darts-clone.
 
 //
 // Member functions of DoubleArrayImpl (except build()).

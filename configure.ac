@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([darts-clone], [0.32g-rc1], [syata@acm.org])
+AC_INIT([darts-clone], [0.32g], [syata@acm.org])
 AC_CONFIG_SRCDIR([include/darts.h])
 AM_INIT_AUTOMAKE
 
