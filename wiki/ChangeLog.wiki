@@ -2,6 +2,11 @@
 
 = 変更履歴 =
 
+ * 2011/2/11
+  * darts-clone-0.32g.tar.gz をアップロード．
+  * README, COPYING を修正．
+  * darts.h のコメントを修正．
+  * Wiki の [Introduction] を修正．
  * 2010/10/31
   * Wiki の [ClassInterface], [Introduction], [Applications] を更新．
  * 2010/10/30
