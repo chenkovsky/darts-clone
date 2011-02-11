@@ -1,13 +1,13 @@
 #summary Darts clone のインタフェース
 #labels Phase-Design,Featured
 
+<wiki:toc max_depth="3" />
+
 = 概要 =
 
-Darts-clone は単一のヘッダファイルで構成されるライブラリです．そのため，`#include <darts.h>` を挿入するだけで，すべての機能を使うことができます．一般的なアプリケーションでは，`Darts::DoubleArray` というクラスを使うことになります．
+Darts-clone は単一のヘッダファイル（`darts.h`）で構成されるライブラリです．そのため，`#include <darts.h>` を挿入するだけで，すべての機能を使うことができます．一般的なアプリケーションでは，`Darts::DoubleArray` というクラスを使うことになります．
 
 `Darts::DoubleArray` を利用する場合，Darts-clone のインタフェースは Darts とほとんど同じになります．そのため，Darts を用いているアプリケーションの大半については，`darts.h` を差し替えるだけで，簡単に Darts から Darts-clone へと移行できると思います．
-
-<wiki:toc max_depth="3" />
 
 ----
 
@@ -174,7 +174,7 @@ std::size_t nonzero_size() const;
 
 † `set_array()` によりアドレスを設定する場合，要素数も一緒に設定しておかないと，`size()` や `total_size()` により正しいサイズを取得できなくなります．
 
-‡ Darts の `nonzero_size()` は使用状態になっている要素の数を返しますが，Darts-clone の `nonzero_size()` は常に要素数を返すようになっています．Darts-clone では未使用要素を計数するのが難しいことが理由です．
+‡ Darts の `nonzero_size()` は使用状態になっている要素の数を返しますが，Darts-clone の `nonzero_size()` は常に要素数を返すようになっています．Darts-clone では未使用要素の計数が難しいことが理由です．
 
 === ダブル配列の構築 ===
 

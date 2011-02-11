@@ -1,8 +1,10 @@
 #summary 使用方法
 
+<wiki:toc max_depth="3" />
+
 = 概要 =
 
-Darts-clone を !MeCab や !ChaSen で利用する方法を紹介します．また，辞書サイズがどのくらい小さくなるのかを示します．
+Darts-clone を !MeCab や !ChaSen で利用する方法を紹介します．また，辞書がどのくらい小さくなるのかを示します．
 
  * !MeCab
   * !MeCab で ipadic を用いた場合の辞書（sys.dic）
@@ -76,13 +78,13 @@ Darts-clone を !MeCab や !ChaSen で利用する方法を紹介します．ま
   * http://sourceforge.jp/projects/ipadic/
 
  # アーカイブをダウンロードします．
-  * wget "http://darts-clone.googlecode.com/files/darts-clone-0.32g-rc1.tar.gz"
+  * wget "http://darts-clone.googlecode.com/files/darts-clone-0.32g.tar.gz"
    * Darts であれば "http://chasen.org/~taku/software/darts/src/darts-0.32.tar.gz" になります．
   * wget "http://sourceforge.jp/frs/redir.php?m=jaist&f=%2Fchasen-legacy%2F32224%2Fchasen-2.4.4.tar.gz" -O chasen-2.4.4.tar.gz
   * wget "http://sourceforge.jp/frs/redir.php?m=iij&f=%2Fipadic%2F24435%2Fipadic-2.7.0.tar.gz" -O ipadic-2.7.0.tar.gz
- # darts-clone-0.32g-rc1 をビルド・インストールします．
-  * tar zxf darts-clone-0.32g-rc1.tar.gz
-  * cd darts-clone-0.32g-rc1
+ # darts-clone-0.32g をビルド・インストールします．
+  * tar zxf darts-clone-0.32g.tar.gz
+  * cd darts-clone-0.32g
   * ./configure
   * make
   * make check
