@@ -346,24 +346,52 @@ int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
     size = std::ftell(file) - offset;
   }
 
+  size /= unit_size();
+  if (size < 256 || (size & 0xFF) != 0) {
+    std::fclose(file);
+    return -1;
+  }
+
   if (std::fseek(file, offset, SEEK_SET) != 0) {
     std::fclose(file);
     return -1;
   }
 
-  size /= unit_size();
+  unit_type units[256];
+  if (std::fread(units, unit_size(), 256, file) != 256) {
+    std::fclose(file);
+    return -1;
+  }
+
+  if (units[0].label() != '\0' || units[0].has_leaf() ||
+      units[0].offset() == 0 || units[0].offset() >= 512) {
+    std::fclose(file);
+    return -1;
+  }
+  for (id_type i = 1; i < 256; ++i) {
+    if (units[i].label() <= 0xFF && units[i].offset() >= size) {
+      std::fclose(file);
+      return -1;
+    }
+  }
+
   unit_type *buf;
   try {
     buf = new unit_type[size];
+    for (id_type i = 0; i < 256; ++i) {
+      buf[i] = units[i];
+    }
   } catch (const std::bad_alloc &) {
     std::fclose(file);
     DARTS_THROW("failed to open double-array: std::bad_alloc");
   }
 
-  if (std::fread(buf, unit_size(), size, file) != size) {
-    std::fclose(file);
-    delete[] buf;
-    return -1;
+  if (size > 256) {
+    if (std::fread(buf + 256, unit_size(), size - 256, file) != size - 256) {
+      std::fclose(file);
+      delete[] buf;
+      return -1;
+    }
   }
   std::fclose(file);
 
