@@ -405,7 +405,7 @@ int DoubleArrayImpl<A, B, T, C>::open(const char *file_name,
 
 template <typename A, typename B, typename T, typename C>
 int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
-    const char *mode, std::size_t) const {
+    const char *mode, std::size_t offset) const {
   if (size() == 0) {
     return -1;
   }
@@ -421,6 +421,11 @@ int DoubleArrayImpl<A, B, T, C>::save(const char *file_name,
     return -1;
   }
 #endif
+
+  if (std::fseek(file, offset, SEEK_SET) != 0) {
+    std::fclose(file);
+    return -1;
+  }
 
   if (std::fwrite(array_, unit_size(), size(), file) != size()) {
     std::fclose(file);
