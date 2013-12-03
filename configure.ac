@@ -7,13 +7,10 @@ AC_CONFIG_SRCDIR([include/darts.h])
 AM_INIT_AUTOMAKE
 
 # Checks for programs.
-AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
 
 AC_LANG([C++])
-
-AC_C_INLINE
 
 # Checks for libraries.
 
@@ -22,9 +19,6 @@ AC_C_INLINE
 # Checks for header files.
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_HEADER_STDBOOL
-
-AC_TYPE_SIZE_T
 
 # Checks for library functions.
 AC_CHECK_FUNCS([strtol])
